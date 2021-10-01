@@ -1750,5 +1750,146 @@ tom.fred.bob.sammy=123
 
 ### 1.13 环境抽象
 
+略。todo
 
+### 1.14 注册`LoadTimeWeaver`
+
+略。todo
+
+### 1.15 `ApplicationContext`额外的能力
+
+`org.springframework.beans.factory`包提供了管理和操作`bean`的基础功能，包括以编程的方式。`org.springframework.context`包添加了`ApplicationContext`接口，这扩展了`BeanFactory`接口。许多人以完全声明性的方式使用`ApplicationContext`，甚至不以编程的方式创建它，而是依赖`ContextLoader`之类的支持自动实例化`ApplicationContext`，作为`Java EE web`应用程序正常启动的一部分。
+
+为了以一个更加面向框架的风格来增强`BeanFactory`的功能，`context`包还提供了下列的功能：
+
+- 通过`MessageSource`接口，以`i18-style`的方式来访问`message`。
+- 通过`ResourceLoader`接口，使用`URL`或者文件来访问资源。
+- 通过使用`ApplicationEventPublisher`接口，来实现`ApplicationListener`接口，也就是事务发布？
+- 加载多个`context`，让他们每一个能够专注于特定的层级，例如`web`层通过`HierarchicalBeanFactory`接口。
+
+#### 1.15.1 使用`MessageSource`来实现国际化？`Internationalization`。
+
+`ApplicationContext`接口扩展了`MessageSource`接口，并且因此提供了国际化（`i18n`）功能？。`Spring`也提供`HierarchicalMessageSource`接口，这个接口可以分级解析消息。总的来说，这些接口提供能`Spring`影响消息解析的基础。这些接口定义的方法包括：
+
+- `String getMessage(String code, Object[] args, String default, Locale loc)`：从`MessageSource`获取消息的方法。 没有消息的时候使用默认消息。任何输入的参数都会代替原来的值，使用`MessageFormat`功能。
+- `String getMessage(String code, Object[] args, Locale loc)`：和上面的一样，但没有指定默认消息。如果找不到消息，将会抛出异常。
+- `String getMessage(MessageSourceResolvable resolvable, Locale locale)`：前面的其他参数都被集合进第一个参数的类中，。
+
+加载`ApplicationContext`的时候，会自动搜`MessageSource bean`，这个`bean`必须叫做`messageSource`。如果找到了这样的`bean`，那么所有调用前面展示的方法将会被传递给这个`bean`调用。如果没有找到，`ApplicationContext`会在父容器寻找。如果最终找不到，一个空的`DelegatingMessageSource`将会被实例化来接受这些方法的调用。
+
+`Spring`提供了三个`MessageSource`的实现：`ResourceBundleMessageSource`，`ReloadableResourceBundleMessageSource`和`StaticMessageSource`。他们都实现了`HierarchicalMessageSource`以便处理`nested`消息。`StaticMessageSource`很少使用，但它提供了编程方式来添加消息到源。下面是`ResourceBundleMessageSource`的例子：
+
+```xml
+<beans>
+    <bean id="messageSource"
+            class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basenames">
+            <list>
+                <value>format</value>
+                <value>exceptions</value>
+                <value>windows</value>
+            </list>
+        </property>
+    </bean>
+</beans>
+```
+
+假设在你的`classpath`，你有三个分别叫做`format,exceptions,windows`的资源调用。所有的请求都会通过`ResourceBundle`对象以`JDK`的标准方式来解析。假设资源的内容如下：
+
+```
+    # in format.properties
+    message=Alligators rock!
+```
+
+```
+ # in exceptions.properties
+    argument.required=The {0} argument is required.
+```
+
+下面的例子展示了如何使用`MessageSource`的功能。记住所有的`ApplicationContext`也实现了`MessageSource`，所以他们可以被转换的`MessageSource`接口。
+
+```java
+public static void main(String[] args) {
+    MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+    String message = resources.getMessage("message", null, "Default", Locale.ENGLISH);
+    System.out.println(message);
+}
+```
+
+运行结果：
+
+```
+Alligators rock!
+```
+
+总结来说，`MessageSource`这个`bean`被定义在根目录的`beans.xml`中。`messageSource`的定义中通过`basename`属性指向一系列资源。
+
+下面的例子展示了传传递给消息查找参数。这些参数被转换成`String`对象并且插入到查找消息的队列中？：
+
+```xml
+<beans>
+
+    <!-- this MessageSource is being used in a web application -->
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basename" value="exceptions"/>
+    </bean>
+
+    <!-- lets inject the above MessageSource into this POJO -->
+    <bean id="example" class="com.something.Example">
+        <property name="messages" ref="messageSource"/>
+    </bean>
+
+</beans>
+```
+
+```java
+public class Example {
+
+    private MessageSource messages;
+
+    public void setMessages(MessageSource messages) {
+        this.messages = messages;
+    }
+
+    public void execute() {
+        String message = this.messages.getMessage("argument.required",
+            new Object [] {"userDao"}, "Required", Locale.ENGLISH);
+        System.out.println(message);
+    }
+}
+```
+
+调用`execute()`方法会有如下结果：
+
+```
+The userDao argument is required.
+```
+
+关于国际化（`i18n`），`Spring`多种`MessageSource`的实现遵循了`JDK`的`ResourceBundle`中同样的资源定位和回调规则。简单来说，例如你想解析英语？（`en-GB`），你需要创建对应的`format_en_GB.properties`，`exceptions_en_GB.preperties`和`windows_en_GB.properties`。
+
+通常`locale resolution`通过应用的环境变量管理。下面手动指定解析英语：
+
+```
+#in exception_en_GB.properties
+argument.required=Egagum lad, ther ''{0}'' argument is required, I say, required.
+```
+
+```java
+public static void main(final String[] args) {
+    MessageSource resources = new ClassPathXmlApplicationContext("beans.xml");
+    String message = resources.getMessage("argument.required",
+        new Object [] {"userDao"}, "Required", Locale.UK);
+    System.out.println(message);
+}
+```
+
+会有如下输出；
+
+```
+Ebagum lad, the 'userDao' argument is required, I say, required.
+```
+
+也可以通过`MessageSourceAware`接口来获得到任何已经定义了的`MessageSource`。任何在`ApplicationContext`中定义的实现了`MessageSourceAware`接口的`bean`都会在创建和配置的时候注入`ApplicationContext`的`MessageSource`。
+
+#### 1.15.2 标准和自定义事件`Event`
 
