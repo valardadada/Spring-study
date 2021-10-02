@@ -1904,3 +1904,187 @@ Ebagum lad, the 'userDao' argument is required, I say, required.
 - `RequestHandledEvent`：`web`专用的事件，来告诉`bean`收到了一个`HTTP`请求。这个事件会在请求完成之后产生。这个只能在使用`Spring`的`DispatcherServlet`的`web`应用才能访问到。
 - `ServletRequestHandledEvent`：`RequestHandledEvent`的子类，添加了`Servlet`专有的内容信息。
 
+可以创建和发布自定义事件。下面展示一个类来扩展`Spring`的`ApplicationEvent`：
+
+```java
+public class BlockedListEvent extends ApplicationEvent {
+
+    private final String address;
+    private final String content;
+
+    public BlockedListEvent(Object source, String address, String content) {
+        super(source);
+        this.address = address;
+        this.content = content;
+    }
+
+    // accessor and other methods...
+}
+```
+
+通过调用`ApplicationEventPublicsher`的`publicshEvent()`方法来产生一个自定义的`ApplicationContext`。通常，这通过创建一个实现了`ApplicationEventPublisherAware`的类，然后在`Spring`中将他注册为一个`bean`来实现。下列的例子展示了这个类：
+
+```java
+public class EmailService implements ApplicationEventPublisherAware {
+
+    private List<String> blockedList;
+    private ApplicationEventPublisher publisher;
+
+    public void setBlockedList(List<String> blockedList) {
+        this.blockedList = blockedList;
+    }
+
+    public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
+        this.publisher = publisher;
+    }
+
+    public void sendEmail(String address, String content) {
+        if (blockedList.contains(address)) {
+            publisher.publishEvent(new BlockedListEvent(this, address, content));
+            return;
+        }
+        // send email...
+    }
+}
+```
+
+在配置的时候，`Spring`容器检测到这个`EmailService`实现了`ApplicationEventPublisherAware`，就会自动条用他的`setApplicationEventPublisher()`方法。实际上，传入的参数是`Spring`容器本身。你可以通过`ApplicationContext`的`ApplicationEnventPublisher`接口来和它交互。
+
+为了接收到`ApplicationEvent`，你可以创建一个实现了`ApplicationListener`的类，并且将之注册为`Spring`的一个`bean`来实现。下列展示了这个类：
+
+```java
+public class BlockedListNotifier implements ApplicationListener<BlockedListEvent> {
+
+    private String notificationAddress;
+
+    public void setNotificationAddress(String notificationAddress) {
+        this.notificationAddress = notificationAddress;
+    }
+
+    public void onApplicationEvent(BlockedListEvent event) {
+        // notify appropriate parties via notificationAddress...
+    }
+}
+```
+
+请注意，`ApplicationListener`用你自定义的事件来一般参数化（`generically parameterized`）（在前面的例子是`BlockedListEvent`事件）。这意味着，`onApplicationEvent()`方法可以保持`type-safe`类型安全，避免任何的向下转型。你可以注册任意多个事件监听器，但请注意，默认情况下，事件监听器以同步的方式接收事件。这意味着`publishEvent()`方法会阻塞直到所有的监听器都完成了处理事件的工作。同步的一个优点，也是单线程方法的优点，就是当监听器收到一个事件的时候，如果事务上下文是可获得的时候，他会在事务上下文内部进行操作？。如果另一个产生事件的策略也很重要，可以看`Spring`关于`ApplicationEventMulticaster`接口的`javadoc`，以及`SimpleApplicationEventMulticaster`对配置选项的实现。
+
+下列展示了注册和配置上面的类的例子：
+
+```xml
+<bean id="emailService" class="example.EmailService">
+    <property name="blockedList">
+        <list>
+            <value>known.spammer@example.org</value>
+            <value>known.hacker@example.org</value>
+            <value>john.doe@example.org</value>
+        </list>
+    </property>
+</bean>
+
+<bean id="blockedListNotifier" class="example.BlockedListNotifier">
+    <property name="notificationAddress" value="blockedlist@example.org"/>
+</bean>
+```
+
+总的来说，当`emailService bean`的`sendEmail()`方法被调用的时候，如果这里有任何应该阻塞的`email`信息，要给自定义的`BlockedListEvnet`事件就产生了。`blockedListNotifier bean`作为`ApplicationListener`被注册，并且会收到`BlockedListEvent`，某种程度上它可以通知合适的部分。
+
+> `Spring`的事件机制是为了`Spring`的`bean`和同一个容器中的其他`bean`进行交流。然而，对于大多数复杂的企业整合需要，独立维护`Spring Integration`工程提供了对在著名的`Spring`编程模型上的轻量级`build`，模式匹配，事件驱动架构的支持。
+
+**基于注解的事件监听器**：
+
+略。todo，看到注解的部分的时候再来看。
+
+**同步监听器**：
+
+如果你想一个特定的监听器同步的处理事件，你可以重用`@Async`注解来支持。下面就是一个例子：
+
+```java
+@EventListener
+@Async
+public void processBlockedListEvent(BlockedListEvnet event){
+    //bolckedListEvent is processed in a separate thread
+}
+```
+
+使用同步事件时，请注意如下的限制：
+
+- 如果同步事件监听器抛出异常，他是不会被传播到调用者的。查看[AsyncUncaughtExceptionHandler](https://docs.spring.io/spring-framework/docs/5.3.10/javadoc-api/org/springframework/aop/interceptor/AsyncUncaughtExceptionHandler.html)。
+- 同步事件监听器方法不能够通过返回值来产生一个`subsequent`事件。如果你需要产生另一个事件来作为处理的结果，需要注入一个`ApplicationEventPublisher`来手动产生一个。
+
+**监听器的顺序**：
+
+如果需要监听器在另一个监听器之前调用，可以使用`@Order`注解来声明方法，如下：
+
+```java
+@EventListener
+@Order(42)
+public void processBlockedListEvent(BlockedLitEvent event){
+    //notify appropriate parties via notificationAddress...
+}
+```
+
+**通用事件**：
+
+可以使用泛型来更深入的定义事件。考虑使用一个`EntityCreateEvnet<T>`。例如，可以创建一个如下的监听器，来接受`Person`的`EntityCreateEvent`：
+
+```java
+@EventListener
+public void onPersonCreated(EntityCreatedEvent<Person> event) {
+    // ...
+}
+```
+
+由于类型擦除（`JVM`对泛型的处理方式），仅当激发的事件解析了事件监听器筛选的泛型参数的时候才能够正常工作。（即类似于`class PersoncreatedEvent extends EntityCreatedEvent<Person> {....}`）。？没有明白，类型擦除我明白，意思是如果事件监听器不能获取到它的实际类型就不能正常工作？似乎不太对。。
+
+在确定的情况下，如果所有的事件都有同样的结构，这有点无趣（就像前面的例子一样）。那种情况下，你可以实现`ResolvableTypeProvider`以便在超出运行时环境可提供的内容来指导框架：
+
+```java
+public class EntityCreatedEvent<T> extends ApplicationEvent implements ResolvableTypeProvider {
+
+    public EntityCreatedEvent(T entity) {
+        super(entity);
+    }
+
+    @Override
+    public ResolvableType getResolvableType() {
+        return ResolvableType.forClassWithGenerics(getClass(), ResolvableType.forInstance(getSource()));
+    }
+}
+```
+
+#### 1.15.3 方便的访问低级资源
+
+为了优化用例和理解`application context`，你应该熟悉`Spring`的资源抽象（在[Resource](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#resources)）.
+
+应用上下文是一个`ResourceLoader`，它可以用来加载`Resource`对象。`Resource`本质上是`java.net.URL`的功能更丰富的版本。`Resource`封装了一个`java.net.URL`实例。`Resource`可以从几乎任何地方获取低等级的资源，包括类路径，文件系统地址，标准`URL`描述的地址，和一些其他变量。如果资源位置的字符串是没有任何特殊前缀的简单路径，那么这些资源的来源是特定的，且适合于实际的应用上下文类型。
+
+可以配置部署在应用上下文的`bean`实现指定的回调接口，`ResourceLoaderAware`，为了在初始化的时候能够自动回调，并且将应用上下文本身作为`ResourceLoader`传递过来。你也可以暴露`Resource`类型的资源，用来获取静态资源。他们把这些当作任何其他属性一样注入。你可以将`Resource`属性当作简单字符串`String`路径来指定，并且依靠自动将文本字符串转化为实际的`Resource`对象。
+
+提供给`ApplicationContext`构造器的资源路径，是真实的资源路径字符串，并且，会根据上下文的实现合适的处理。例如`ClassPathXmlApplicationContext`将简单的地址路径当作类路径地址。你可以使用带有特殊前缀的地址路径（资源字符串）从类路径，`URL`来强制加载定义，五十实际的上下文类型。
+
+#### 1.15.4 应用启动追踪(Tracking)
+
+`ApplicationContext`管理`Spring`应用的生命周期，并且在容器中提供丰富的编程模型。作为结果，复杂的应用可以有同样复杂的容器图和启动步骤。
+
+使用合适的指标来追踪应用的启动步骤可以帮助理解启动步骤中哪一步最耗时，也可以用来更好的理解上下文的生命周期。
+
+`AbstractApplicationContext`（以及它的子类）使用`ApplicationStartup`进行检测，他会收集`StartupStep`的数据，包括以下的：
+
+- 应用上下文生命周期（基于包扫描，配置类管理）
+- `bean`声明周期（实例化，智能初始化，`post process`）
+- 应用事件处理
+
+这里有一个`AnnotationConfigApplicationContext`的例子：
+
+```java
+// create a startup step and start recording
+StartupStep scanPackages = this.getApplicationStartup().start("spring.context.base-packages.scan");
+// add tagging information to the current step
+scanPackages.tag("packages", () -> Arrays.toString(basePackages));
+// perform the actual phase we're instrumenting
+this.scanner.scan(basePackages);
+// end the current step
+scanPackages.end();
+```
+
