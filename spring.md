@@ -1893,3 +1893,14 @@ Ebagum lad, the 'userDao' argument is required, I say, required.
 
 #### 1.15.2 标准和自定义事件`Event`
 
+`ApplicationContext`中的事件处理通过`ApplicationEvent`类和`ApplicationListener`接口提供。如果一个实现了`ApplicationListener`接口的`bean`部署在容器中，`ApplicationContext`中每一次有`ApplicationEvent`发生的时候，这个`bean`都会被通知到。这是标准的<span style="color:red"> 观察者模式</span>。
+
+`Spring`提供的标准事件：
+
+- `ContextRefreshedEvent`：当`ApplicationContext`被初始化或者刷新的时候产生。（如，通过`ConfigurableApplicationContext`接口的`refresh()`方法）初始化意味着所有被加载的`bean`，`post-processer bean`被检测到并且激活，以及单例被预实例化，`ApplicationContext`对象准备好可以使用。只要容器没有关闭，刷新事件可以触发多次，假设被选择的`ApplicationContext`支持热刷新的情况。例如，`XmlWebApplicationContext`支持热刷新，但`GenericApplicationContext`不支持。
+- `ContextStartedEvent`：当`ApplicationContext`在`ConfigurableApplicationContext`接口上使用`start()`方法的时候产生。这里的`started`意味着所有`Lifecycle bean`会受到一个显式的开始信号。通常这个信号被用来在显式暂停之后重新开始，也可以用来启动没有配置自动开始的容器。
+- `ContextStoppedEvent`：当`ApplicaitonContext`使用在`ConfigurableApplicationContext`上的`close()`方法关闭的时候产生。这里的`stopped`意味着所有`Lifecycle bean`都会收到一个显式的停止信号。停止的容器（`context`）可以使用`start()`方法来重新开始。
+- `ContextClosedEvent`：当使用`ConfigurableApplicationContext`接口的`close()`方法或者通过`JVM`的关闭来关闭一个`ApplicationContext`的时候产生。这里的`closed()`意味着所有的单例`bean`都会被<span style="color:red">摧毁</span>.
+- `RequestHandledEvent`：`web`专用的事件，来告诉`bean`收到了一个`HTTP`请求。这个事件会在请求完成之后产生。这个只能在使用`Spring`的`DispatcherServlet`的`web`应用才能访问到。
+- `ServletRequestHandledEvent`：`RequestHandledEvent`的子类，添加了`Servlet`专有的内容信息。
+
