@@ -2,9 +2,9 @@
 
 测试git= =。
 
-## 核心技术
+# 核心技术
 
-### 1.IOC(inversion of Control,控制反转)
+## 1.IOC(inversion of Control,控制反转)
 
 > IOC也被称为依赖注入。
 >
@@ -2122,4 +2122,235 @@ scanPackages.end();
 可以将`ApplicationContext`作为`RAR`文件步数，将上下文和所有他需要的`bean`和`Java EE RAR`部署单元中的`JAR`库封装到一个文件。
 
 略。todo。
+
+### 1.16 `BeanFactory`
+
+`BeanFacory`为`Spring`的`IoC`功能提供了底层基础。他的`contracts`常用来整合`Spring`的其他部分和相关的三方框架，他的`DefaultListableBeanFactory`实现在高级的`GenericApplicationContext`容器中也相当关键。
+
+`BeanFactory`和相关的接口（例如`BeanFactoryAware`，`initializingBean`，`DisposableBean`）对于其他框架容器来说是很重要的整合点。无需通过任何注解甚至是反射，他们就允许容器和他内容相当高效的整合。应用级的`bean`也许使用相同的回调接口，但是通常声明性的依赖注入更好，或者通过注解或者通过编程配置。
+
+注意`BeanFactory API`级别以及它的`DefaultListableBeanFactory`实现没有对使用的配置格式或者任何内容注解的假设（也就是说没有规定使用什么方式来进行配置）。所有的这些倾向都通过扩展（例如`XmlBeanDefinitionReader`，`AutowiredAnnotationBean PostProcessor`）以及在共享的作为核心元数据代表的`BeanDefinition`对象上的操作来设置。<span style="color:red">这是让`Spring`容器如此灵活并且可扩展的本质。</span>
+
+#### 1.16.1选择 `BeanFactory`还是`ApplicationContext`?
+
+这部分解释`BeanFactory`和`ApplicationContext`容器的级别以及对引导的影响。
+
+除非有很好的理由，否则就应该使用`ApplicationContext`，它带有`GenericApplicationContext`和它的子类`AnnotationConfigApplicationContext`作为自定义引导的常用实现。这是`Spring`核心容器用于所有普通目的的主要入口点：加载配置文件，出发类路径扫描，编程性的注册`bean`定义和注释类，以及注册功能性`bean`的定义。
+
+​	因为`ApplicationContext`包含了`BeanFacoty`的所有功能。一般推荐在普通`BeanFactory`中使用，除了在需要`bean`进程完整的控制的场景。在`ApplicationContext`内部（例如`GenericApplicationContext`实现），按照惯例会有几种`bean`被检测（通过`bean`的名字，或者类型——例如，`post-processor`），然而普通的`DefaultListableBeanFactory`对于任何特定的`bean`都是不可知的。
+
+`BeanPostProcessor`对于许多扩展的容器特性，例如注解处理，`AOP`代理来说是非常重要的。如果只是用`DefaultListableBeanFactory`，例如`post-processor`就不会被检测到，更不会被默认激活。这种情况令人困扰，因为你的`bean`配置没有任何问题。在这种情况下，容器需要通过额外的步骤来进行完全的引导。
+
+下列列表提供了`BeanFactory`和`ApplicationContext`接口和实现：
+
+| 特性                                        | BeanFactory | ApplicationContext |
+| ------------------------------------------- | ----------- | ------------------ |
+| Bean实例化/布线                             | 是          | 是                 |
+| 整合生命周期管理                            | 否          | 是                 |
+| 自动注册`BeanPostProcessor`                 | 否          | 是                 |
+| 自动注册`BeanFactoryPostProcessor`          | 否          | 是                 |
+| `MessageSource`的快捷访问（在实例化的时候） | 否          | 是                 |
+| 内置`ApplicationEvent`发布机制              | 否          | 是                 |
+
+使用`DefaultListableBeanFactory`来显示注册一个`bean post-processor`，需要编程性的调用`addBeanPostProcessor`，如下：
+
+```java
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+// populate the factory with bean definitions
+
+// now register any needed BeanPostProcessor instances
+factory.addBeanPostProcessor(new AutowiredAnnotationBeanPostProcessor());
+factory.addBeanPostProcessor(new MyBeanPostProcessor());
+
+// now start using the factory
+```
+
+将一个`BeanFactoryPostProcessor`应用于一个普通的`DefaultListablezBeanFactory`，需要调用它的`postProcessBeanFactory`方法，如下：
+
+```java
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
+reader.loadBeanDefinitions(new FileSystemResource("beans.xml"));
+
+// bring in some property values from a Properties file
+PropertySourcesPlaceholderConfigurer cfg = new PropertySourcesPlaceholderConfigurer();
+cfg.setLocation(new FileSystemResource("jdbc.properties"));
+
+// now actually do the replacement
+cfg.postProcessBeanFactory(factory);
+```
+
+两种情况下，显示注册步骤很不方便，这就是为什么在`Spring`支持的应用中，大多数都倾向于使用`ApplicationContext`而不是`DefaultListableBeanFactory`，尤其是在典型的企业安装中，依赖`BeanFactoryPostProcessor`和`BeanPostProcessor`实例来扩展容器功能的时候。
+
+## 2. 资源
+
+这部分涵盖了`Spring`如何处理资源和你怎样在`Spring`中使用资源。
+
+### 2.1 介绍
+
+`java`标准的`java.net.URL`类和标准的各种`URL`前缀处理器，不幸的是，对于访问低级资源来说不够充足。例如，这里没有标准化的`URL`实现用来访问需要从类路径或者相关`ServletContext`获得的资源。尽管可以为特定的`URL`前缀注册处理器（类似于现存的前缀处理器，如`http:`），这通常很复杂，并且`URL`接口仍然缺乏一些需要的功能，例如检查指向的资源是否存在的方法。
+
+### 2.2 `Resource`接口
+
+`Spring`的`Resource`接口在`org.springframework.core.io.`包中，理应是更有能力访问低等级资源的接口。下列提供了`Resource`接口的概览，详情查看[Resource](https://docs.spring.io/spring-framework/docs/5.3.10/javadoc-api/org/springframework/core/io/Resource.html)。
+
+```java
+public interface Resource extends InputStreamSource {
+
+    boolean exists();
+
+    boolean isReadable();
+
+    boolean isOpen();
+
+    boolean isFile();
+
+    URL getURL() throws IOException;
+
+    URI getURI() throws IOException;
+
+    File getFile() throws IOException;
+
+    ReadableByteChannel readableChannel() throws IOException;
+
+    long contentLength() throws IOException;
+
+    long lastModified() throws IOException;
+
+    Resource createRelative(String relativePath) throws IOException;
+
+    String getFilename();
+
+    String getDescription();
+}
+
+```
+
+如接口定义展示的那样，它扩展了`InputStreamSource`接口。下面是这个接口的定义：
+
+```java
+public interface InputStreamSource{
+    InputStream getInputStream() throws IOException;
+}
+```
+
+`Resource`接口中重要的方法：
+
+- `getInputStream()`：定位并且打开资源，返回一个`InputStream`来从资源读取。它期望每个调用都返回一个新的`InputStream`。调用者来关闭流是很理所应当的事情。
+- `exists()`：返回一个`boolean`来表明在资源是否物理上存在。
+- `isOpen()`：返回一个`boolean`来表明资源是否代表了一个有已经打开的流的句柄？如果为真，`InputStream`不能被多次读取，大概十需要等到关闭了之后才能够重新读取，以避免资源泄漏。为所有通常的资源实现返回假，带有异常`InputSteamResource`。
+- `getDescription()`：返回资源的描述，用于处理资源时输出错误信息。这通常是资源的全限定名或者实际的资源定位符（`URl`）。
+
+其他让你获得`URL`或者`File`对象所代表的资源的方法（如果底层实现是兼容的并且支持那个功能）。
+
+一些`Resource`接口的实现也实现了扩展的`WritableResource`接口，以便支持写入资源。
+
+`Spring`本身扩展性的使用`Resource`抽象，当需要一个资源的时候，会在许多方法签名中作为参数类型。`Spring API`中的其他方法（例如各种`ApplicationContext`实现的构造器）接受一个`String`输入，这个`String`是朴素或者简单格式，用来创建一个`Resource`给那个上下文实现，或者通过在`String`路径上指定前缀，让调用者指定一个已经被创建或者使用的`Resource`的实现。
+
+尽管`Spring`和在`Spring`中使用了大量的`Resource`接口，但是它实际上用来作为通用的类来访问资源也是非常便利的，即使是当你的代码不知道或者不关心任何`Spring`的其他部分。尽管这将你的代码与`Spring`耦合，但它实际上仅仅耦合了工具了的一个小集合，这些作为`URL`更有力的替代，可以考虑与其他任何库等价。
+
+### 2.3 内置`Resource`实现
+
+`Spring`内置了如下的`Resource`实现：
+
+- `UrlResource`
+- `ClassPathResource`
+- `FileSystemResource`
+- `PathResource`
+- `ServletContextResource`
+- `InputStreamResource`
+- `ByteArrayResource`
+
+想要查看所有的实现，可以参考对应的`javadoc`[Resource](https://docs.spring.io/spring-framework/docs/5.3.10/javadoc-api/org/springframework/core/io/Resource.html)。
+
+#### 2.3.1 `UrlResource`
+
+`UrlResource`封装了一个`java.net.URL`，并且可以被用来访问任何可以通过`URL`来访问的对象，例如文件，`HTTPS`目标，`FTP`目标，和其他。所有的`URl`有一个标准的`String`代表，以至于合适的标准化前缀被用来区别`URL`前缀和其他的。这包括了`file:`来访问文件系统路径，`https:`通过`HTTPS`协议来访问资源，`ftp:`通过`FTP`协议访问。
+
+`UrlResource`通过`java`代码显示使用`UrlResource`构造器来创建，但是通常隐式创建，当你调用一个`API`方法的时候，会接受一个`String`参数代表了对应的路径。对于后者，`PropertyEditor`这个`JavaBean`最终决定创创建什么类型的资源。如果路径不含熟知（对于属性编辑器来说）前缀（例如`classpath:`），他会创建合适的指定资源。然而，如果没有识别出前缀，他会假设使用了标准的`URL`字符串，并创建一个`UrlResource`。
+
+#### 2.3.2 `ClassPathResource`
+
+这个类代表了应该从类路径获取的资源。它使用线程上下文类加载器（给定的类加载器），或者一个给定的用于加载资源的类。
+
+这个`Resource`实现支持作为一个`java.io.File`解析，如果类路径资源存在于文件系统但不是类路径资源，如存在于`jar`之中，并且没有被扩展（通过`servlet`引擎或者任何其他环境）到文件系统。为了定位这个，为了定位这个，可以支持作为`java.net.URL`进行解析。
+
+通过`java`代码显示调用`ClassPathResource`构造器来创建一个`ClassPathResource`，但通常会在调用接受一个代表路径的`String`的`API`方法中隐式创建。对于后者，`PropertyEditor`会识别特定的前缀，`classpath:`，在这种情况下会创建`ClassPathResource`。
+
+#### 2.3.3 `FileSystemResource`
+
+这是`java.io.File`的资源实现。它支持`java.nio.file.Path`句柄，应用`Spring`标准的基于字符串的路径转换，但是会通过`java.nio.file.Files`这个`API`来执行所有操作。想使用纯净的基于`java.nio.path.Path`的支持，可以使用`PathResource`代替。`FileSystemResource`支持作为`File`和`URL`解析。
+
+#### 2.3.4 `PathResource`
+
+这是`java.nio.file.Path`句柄的资源实现，通过`Path`这个`APi`来执行所有的操作和转换。它支持作为`File`和`URl`进行解析，并且也实现了`WritableResource`接口。`PathResource`是纯基于`java.nio.path.Path`的替代品，它可以替代具有不同`createRelative`行为的`FileSystemResource`。
+
+#### 2.3.5-2.3.7
+
+略。todo
+
+### 2.4 `ResourceLoader`接口
+
+这个接口应该由可以返回`Resource`实例的对象实现。下面展示了这个接口的定义：
+
+```java
+public interface ResourceLoader{
+    
+    Resource getResource(String location);
+    
+    ClassLoader getCLassLoader();
+}
+```
+
+所有的应用上下文实现`ResourceLoader`接口。因此，所有的应用上下文可以用来获取`Resource`实例。
+
+当你在特定的应用上下文里面调用`getResource()`，并且路径没有特别的前缀，你可以获得一个对于这个应用上下文合适的`Resource`类型返回。例如，假设下面的代码在`ClassPathXmlApplicationContext`实例中运行：
+
+```java
+Resource template = ctx.getResource("some/resource/path/myTemplate.txt");
+```
+
+对于`ClassPathXmlApplicationContext`来说，这段代码返回`ClassPathResource`。如果同样的方法在`FileSystemXmlApplicationContext`实例上运行，他会返回`FileSystemResource`。
+
+一方面，你可以在一个合适的应用上下文中加载合适的资源。
+
+但另一方面，你也可以强制使用`ClassPathResource`，而不管应用上下文的类型，通过指定`classpath:`前缀来实现：
+
+```java
+Resource template = ctx.getResource("classpath:some/resource/path/myTemplate.txt");
+```
+
+同样的，使用其他前缀可以获得对应的资源，如`https:`，`file:`。
+
+下面总结了将`String`对象转为资源对象的策略：
+
+| 前缀       | 例子                             | 解释                    |
+| ---------- | -------------------------------- | ----------------------- |
+| classpath: | `classpath:com/myapp/config.xml` | 从类路径加载            |
+| file:      | `file:///data/config.xml`        | 从文件系统作为`URl`加载 |
+| https:     | `https://myserver/logo.png`      | 作为`URL`加载           |
+| (none)     | `/data/confgig.xml`              | 取决于使用的应用上下文  |
+
+### 2.5 `ResourcePatternResolver`接口
+
+`ResourcePatternResolver`接口是`ResourceLoader`接口的扩展，它定义了一个解析地址模式的策略（例如，一个`Ant`风格的路径格式）。
+
+```java
+public interface ResourcePatternResolver extends ResourceLoader {
+
+    String CLASSPATH_ALL_URL_PREFIX = "classpath*:";
+
+    Resource[] getResources(String locationPattern) throws IOException;
+}
+```
+
+如上，它定义了一个指定的`classpath*`资源前缀，对于所有从类路径中匹配的资源。请注意这种情况下资源定位符不要有`placeholder`，例如`classpath*:/config/beans.xml`。`JAR`文件或者类路径中不同的目录都可以包含有同样路径和名字的多个文件。可以查看`Wildcards in Application Context Constructor Resource Paths`这部分，有详细的介绍。
+
+传入的`ResourceLoader`（例如，通过通过`ResourceLoaderAware`语法提供）可以检查它是否也实现了扩展接口。
+
+`PathMatchingResourcePatternResolver`是一个独立的可以在`ApplicationContext`意外使用的实现。并且它也可以被`ResourceArrayPropertyEditor`使用来填充`Resource[]`的`bean`属性。`PathMatchingResourcePatternResolver`可以解析特定的资源地址路径到一个或者多个匹配的`Resource`对象。资源路径也许是有一对一映射到目标资源的简单路径，或者是包含了指定`classpath*:`前缀或者内部`Ant`风格的常规表达式（使用`org.springframework.util.AntPathMatcher`来匹配）。后面的两个都是有效的通配符。
+
+> 默认的任何标准`ApplicationContext`中的`ResourceLoader`都是`PathMatchingResourcePatternResolver`的实例，他们实现了`ResourcepatternResolver`接口。
+
+### 2.6 `ResourceLoaderAware`接口
 
