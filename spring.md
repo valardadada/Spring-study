@@ -2354,3 +2354,178 @@ public interface ResourcePatternResolver extends ResourceLoader {
 
 ### 2.6 `ResourceLoaderAware`接口
 
+`ResourceLoaderAware`接口是一个特殊的回调接口，这个接口标识了被期望提供`ResourceLoader`引用的容器。下面展示了`ResourceLoaderAware`接口：
+
+```java
+public interface ResourceLoaderAware{
+    
+    void setResourceLoader(ResourceLoader resourceLoader);
+}
+```
+
+当一个类实现了`ResourceLoaderAware`接口，并且被部署到一个应用上下文（作为`Spring`管理的一个`bean`），他通过应用上下文被识别为一个`ResourceLoaderAware`。应用上下文然后调用`setResourceLoader(ResourceLoader)`，并将自己作为参数提供给它（`Spring`中所有的应用上下文都实现`ResourceLoader`接口）。
+
+因为`ApplicationContext`也是一个`ResourceLoader`，所以`bean`也可以实现`ApplicationContextAware`接口，并且用提供的应用上下文来直接加载资源。然而，如果特定的`ResourceLoader`接口就能够满足你，最好就使用它（而不是去实现`ApplicationContextAware`接口）。代码将仅仅会被耦合到资源加载接口（可以考虑为共工具接口？）并且不会耦合到整个`Spring`的`ApplicationContext`接口。
+
+在应用容器中，也可以依赖`ResourceLoader`的自动布线作为实现`ResourceLoaderAware`接口的替代。传统的构造器和`byType`自动布线模式就能够为构造器参数或者也给设置方法参数提供一个相应的`ResourceLoader`。为了更高的灵活性（包括自动布线区域的能力和多参数方法），考虑使用基于注解的自动布线特性。这种情况下， `ResourceLoader`自动布线进入期望`ResourceLoader`类的区域，构造器参数或者方法参数，只要这些区域，构造器和方法携带了`@Autowired`注解。更多信息查看[使用@Autowired](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-autowired-annotation).
+
+### 2.7 将资源作为依赖
+
+如果一个`bean`本身通过一些动态过程决定和提供资源路径，那么`bean`使用`ResourceLoader`或者`ResourcePatternResolver`接口来加载资源就很有意义。例如，考虑加载某种模型，在这个模型中，需要某种和使用者角色相对应的特殊资源（就是说，使用者决定了使用何种资源）。如果资源是静态的，那么有理由完全排除使用`ResourceLoader`接口（或者`ResourcePatternResolver`接口），`bean`暴露他需要的`Resource`属性，并且期望被注入这些资源。
+
+使得注入这些属性很复杂的原因是这些属性都是应用上下文寄存器并且使用特殊的`JavaBean`——`PropertyEditor`，它可以把`String`路径转换到`Resource`对象。例如，下面的`MyBean`类有一个`Resource`类型的`template`属性：
+
+```java
+package example;
+
+public class MyBean {
+
+    private Resource template;
+
+    public setTemplate(Resource template) {
+        this.template = template;
+    }
+
+    // ...
+}
+```
+
+在`XMl`配置文件中，`template`属性可以使用简单的资源的字符串来配置，如下：
+
+```xml
+<bean id="myBean" class="example.MyBean">
+	<property name="template" value="some/resource/path/myTemplate.txt"/>
+</bean>
+```
+
+注意，资源路径没有前缀。由于应用上下文容器自己将作为`ResourceLoader`使用，资源通过一个`ClassPathResource`，`FileSystemResource`或者一个`ServletContextResource`加载，取决于应用上下文的准确类型。
+
+如果需要强制指定一个`Resource`类型使用，可以使用前缀。下面展示了如何强制使用：
+
+```xml
+<property name="template" value="classpath:some/resource/path/myTemplate.txt">
+<property name="template" value="file:///some/resource/path/myTemplate.txt"/>
+```
+
+如果`MyBean`类用注解驱动的配置来重构，到`myTemplate.txt`的路径可以存储在一个叫做`template.path`上——例如，在`Spring`环境可获得的属性文件中（查看[Environment Abstraction](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-environment)）。模型路径可以通过`@Value`注解，使用属性占位符来引用（查看[使用@Value](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#beans-value-annotations)）。`Spring`将会以字符串的格式获取模型路径，一个特殊的`PropertyEditor`将会把字符串转换成`Resource`对象来注入到`MyBean`构造器。下面展示了如何实现：
+
+```java
+@Component
+public class MyBean {
+
+    private final Resource template;
+
+    public MyBean(@Value("${template.path}") Resource template) {
+        this.template = template;
+    }
+
+    // ...
+}
+```
+
+如果想要实现同一个路径下，类路径中的多个位置下的模型的发现——例如，类路径中的多个`jar`包——我么你可以使用特殊的`classpath*:`前缀，以及通配符来定义一个`templates.path`键作为`classpath*:/config/templates/*.txt`。如果我们像下面这样重定义`MyBean`，`Spring`会将模型的路径模式转换成`Resource`对象的数组，这个数组可以被注入到`MyBean`构造器中。
+
+```java
+@Component
+public class MyBean {
+
+    private final Resource[] templates;
+
+    public MyBean(@Value("${templates.path}") Resource[] templates) {
+        this.templates = templates;
+    }
+
+    // ...
+}
+```
+
+### 2.8 应用上下文和资源路径
+
+这部分涵盖了如何创建带有资源的应用上下文，包括使用`XML`，如何使用通配符和其他细节。
+
+#### 2.8.1 构造应用上下文
+
+应用上下文构造器（某种特定的应用上下文类型）接受一个字符串或者数组作为资源的位置，例如`XML`文件。
+
+当路径没有前缀的时候，资源的类型，用来加载`bean`的定义都由特定的应用上下文类型决定。例如，考虑下面的例子，会创建一个`ClassPathXmlApplicationContext`：
+
+```java
+ApplicationContext ctx = new ClassPathXmlApplicationContext("conf/appContext.xml");
+```
+
+`bean`的定义会从类路径加载，因为使用了`ClassPathResource`。然而，考虑下面的例子，会创建一个`FileSystemXmlApplicationContext`：
+
+```java
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("conf/appContext.xml");
+```
+
+现在会从文件系统的位置读取（在这个例子中，取决于当前的工作文件夹）。
+
+注意，在地址路径中使用`classpath`前缀或者标准的`URL`前缀会覆盖资源的默认类型来加载`bean`的定义。
+
+```java
+ApplicationContext ctx =
+    new FileSystemXmlApplicationContext("classpath:conf/appContext.xml");
+```
+
+使用`FileSystemXmlApplicationContext`从类路径加载`bean`定义。然而，它仍然是一个`FileSystemXmlApplicationContext`。如果它之后作为`ResourceLoader`来使用，任何没有前缀的路径仍然会被当做文件系统路径来对待。
+
+**构造`ClassPathXmlApplicationContext`实例——捷径**：
+
+`ClassPathXmlAplicationContext`暴露了一系列构造器来让实例化更容易。基础的想法是你可以仅仅支持一个包含了`XML`文件名的字符串数组（没有前导路径信息），同时也提供一个`Class`。然后`ClassPathXmlApplicationContext`从提供的类获取路径信息。
+
+考虑如下的文件树：
+
+```
+com/
+  example/
+    services.xml
+    repositories.xml
+    MessengerService.class
+```
+
+下面的例子展示了由文件`services.xml`和`repositories.xml`定义的`bean`组成的`ClassPathXmlApplicationContext`实例被实例化的：
+
+```java
+ApplicationContext ctx = new ClassPathXmlApplicationContext(
+    new String[] {"services.xml", "repositories.xml"}, MessengerService.class);
+```
+
+查看`ClassPathXmlApplicationContext`的[javadoc](https://docs.spring.io/spring-framework/docs/5.3.10/javadoc-api/org/springframework/context/support/ClassPathXmlApplicationContext.html)。
+
+#### 2.8.2 应用上下文构造器资源文件的通配符
+
+应用上下文构造器中的资源路径值也许是简单路径（如前面展示的），他们每个都是一对一映射到一个目标`Resource`或者，包含特殊`classpath*:`前缀，或者内置`Ant`风格模式（通过`Spring`提供的`PathMatcher`匹配）。后面两者都是高效的通配符。
+
+这个机制的一个用途是当你需要`component`风格的应用的组装？。所有的组件可以产生容器定义的碎片只想`well-known`位置路径，当使用`classpath*:`前缀的通配符的时候，所有组件碎片都会被自动选择。
+
+注意，通配符被指定用在应用上下文构造器中（或者当你使用直接集成`PathMatcher`的工具类的时候），并且在构造时就解析。他和`Resource`类型本身无关。你不能使用`classpath*:`前缀来构造一个实际的`Resource`，因为`Resource`只能一次指向一个资源。
+
+**Ant-style模式**：
+
+路径位置可以包含`Ant`风格模式，如下：
+
+```
+/WEB-INF/*-context.xml
+com/mycompany/**/applicationContext.xml
+file:C:/some/path/*-context.xml
+classpath:com/mycompany/**/applicationContext.xml
+```
+
+当模式是`Ant`风格模式的时候，解析器会用一个更加复杂的过程来试图解析通配符。
+
+略。todo
+
+#### 2.8.3 `FileSystemResource`警告
+
+略。todo
+
+## 3. 验证，数据绑定和类型转换
+
+我想先跳过。
+
+## 4. Spring表达式语言（SpEL）
+
+`SpEL`是一个强大的表达式语言，它支持查询和操作
+
