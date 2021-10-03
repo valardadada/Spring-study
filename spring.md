@@ -2088,3 +2088,38 @@ this.scanner.scan(basePackages);
 scanPackages.end();
 ```
 
+应用上下文已经使用多个步骤来进行检测。一旦进行记录，这些启动步骤可以使用指定的工具收集，展示和分析。完整的现存的启动步骤可以查看[dedicated appendix section](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#application-startup-steps)。
+
+默认的`ApplicationStartup`实现是一个无操作版本，以便实现最小化开销。这意味着默认情况下不会收集任何指标。`Spring Framework`实现了一个使用`Java Flight Recorder`来实现启动步骤记录的功能：`FilghtRecorderApplicationStartup`。为了使用这个版本，你必须在`ApplicationContext`刚被创建就配置一个它的实例。
+
+开发人员也可以使用`ApplicationStartup`基础框架，如果他们提供他们自己的`AbstractApplicationContext`子类，或者他们希望收集到更精准的数据。
+
+开始收集自定义的`StartupStep`，容器可以直接从应用上下文取得`ApplicationStartup`实例，让他们的容器实现`ApplicationStartupAware`，或者在任何注入点上请求`ApplicationStartup`。
+
+> 开发人员在创建自定义启动步骤的时候不应该使用"spring.*"的命名域。这个命名域是为了`Spring`的内部用力保留的，并且可能会改变。
+
+#### 1.15.5 快捷的`Web Application`的应用上下文实例化
+
+你可以通过使用来声明性的创建一个`ApplicationContext`实例，例如，`ContextLoader`。也可以通过使用`ApplicationContext`的某个实现来编程性的创建一个`ApplicationContext`实例。
+
+可以通过使用`ContextLoaderListener`来注册一个`ApplicationContext`：
+
+```xml
+<context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-value>
+</context-param>
+
+<listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+</listener>
+```
+
+这个监听器监视`contextConfigLocation`餐宿。如果这个参数不存在，监听器会使用`/WEB-INF/applicationContext.xml`作为默认参数。当参数存在的时候，监听器会使用预定义的分隔符号（逗号，分号和空白符）来分割字符串，并且使用其值作为应用上下文被搜索的位置。也支持`Antstyle`风格的路径模式。例如：`/WEB-INF/*Context.xml`（所有以`Context.xml`结尾的文件）。
+
+#### 1.15.6 将`Spring ApplicationContext`作为`Java EE RAR`文件部署
+
+可以将`ApplicationContext`作为`RAR`文件步数，将上下文和所有他需要的`bean`和`Java EE RAR`部署单元中的`JAR`库封装到一个文件。
+
+略。todo。
+
