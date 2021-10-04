@@ -2527,5 +2527,191 @@ classpath:com/mycompany/**/applicationContext.xml
 
 ## 4. Spring表达式语言（SpEL）
 
-`SpEL`是一个强大的表达式语言，它支持查询和操作
+`SpEL`是一个强大的表达式语言，它支持在运行时查询和操作对象图。他的语法和`Unified EL`很相似，但是提供额外的特性，最重要的是方法调用和基本的字符串模板功能。
+
+尽管这里有很多`Java`表达式语言——`OGNL,MVEL和JBoss EL`，还有很多。但`SpEL`被创造来提供可以被用在任何`Spring`包中产品支持的`Spring`社区。它的特性是由`Spring`包中的需求所驱动的，包括`Eclipse`中的`Spring`工具的代码补全支持。`SpEL`是技术无关的`API`，如果有需要的话，它可以集成其他表达式语言的实现。
+
+尽管`SpEL`作为`Spring`包中的表达式评估的基础，但他并没有被直接绑定到`Spring`，并且可以独立使用。为了自洽，这章节将`SpEL`作为独立表达式语言来举例子。这要求创建一些引导基础架构类，例如语法分析器。大多数`Spring`用户无需创建引导基础架构类，他们可以只用写表达式字符串。一个典型例子是在`XML`或者基于注解的`bean`定义中使用`SpEL`，查看[bean定义的表达式支持](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions-beandef)。
+
+这章节包含了表达式语言的特性，他的`API`和他的语法。在多个地方，`Inventor`和`Society`类被用作表达式的目标对象。这俩的声明和数据都在章节的最后。
+
+表达式语言支持下面的功能：
+
+- 文字表达。
+- 布尔和关系操作符
+- 常规表达式
+- 类表达式
+- 访问属性，数组，列表和`map`
+- 方法调用
+- 关系操作符
+- 复制
+- 调用构造器
+- `bean`引用
+- 构造数组
+- 内联列表
+- 内联`map`
+- 三元运算符
+- 变量
+- 用户定义函数
+- 收集预测？投影？
+- 手机选择
+- 模板表达式
+
+### 4.1 评估
+
+本章介绍`SpEL`的简单使用以及它的表达式语言。 完整的语言可以在[语言参考](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#expressions-language-ref)中找到。
+
+下面的代码引入`SpEL`接口来评估文字表达式，`Hello World`。
+
+```java
+ExpressionPareser parser = new SpelExpressionParser();
+Expression exp = parser.parseExpression("'Hello world'");
+String message = (String) exp.getValue();
+```
+
+`message`变量的值是`'Hello World'`。
+
+最可能使用的`SpEL`类和接口都在`org.springframework.expression`中，以及他的子包，如`spel.support`。
+
+`ExpressionPareser`接口负责解析表达式字符串。前面的例子中，由单引号包围起来的字符串被解析为文字字符串。`Expression`接口负责评估前面定义的表达式字符串。他们可以抛出两个异常：`ParseException`和`EvaluationException`，当调用`parser.parseExpression`和`exp.getValue`的时候。
+
+`SpEL`支持广泛的特性，例如调用方法，访问属性，以及调用构造器。
+
+下面的例子展示了方法调用，我们对文字字符串调用`concat`方法：
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+Expression exp = parser.parseExpression("'Hello World'.concat('!')"); 
+String message = (String) exp.getValue();
+```
+
+最后`message`的值是`'Hello World!'`。
+
+下面展示了调用`JavaBean`属性，是`String`的`Bytes`属性：
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+// invokes 'getBytes()'
+Expression exp = parser.parseExpression("'Hello World'.bytes"); 
+byte[] bytes = (byte[]) exp.getValue();
+```
+
+这将文字字符串转为字节数组。
+
+`SpEL`还支持通过使用点号（例如`prop1.prop2.prop3`）来嵌套属性，以及对应的属性设置方法。
+
+下面展示了如何实现：
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+// invokes 'getBytes().length'
+Expression exp = parser.parseExpression("'Hello World'.bytes.length"); 
+int length = (Integer) exp.getValue();
+```
+
+`'Hello World'.bytes.length`返回了文字字符串字节数组的长度。
+
+注意泛型方法：`public <T> T getValue(Class<T> desiredResultType)`。使用这个方法就不用将表达式的值转换成目标结果类型了。当不能成功转换的时候，会抛出`EvaluationException`。
+
+`SpEL`更常见的方法是提供针对特定的对象实例（叫做根对象）来计算的表达式字符串。下面展示了如何获得`Inventor`类的`name`属性，或者创建一个布尔状态：
+
+```java
+// Create and set a calendar???这是啥
+GregorianCalendar c = new GregorianCalendar();
+c.set(1856, 7, 9);
+
+// The constructor arguments are name, birthday, and nationality.
+Inventor tesla = new Inventor("Nikola Tesla", c.getTime(), "Serbian");
+
+ExpressionParser parser = new SpelExpressionParser();
+
+Expression exp = parser.parseExpression("name"); // Parse name as an expression
+String name = (String) exp.getValue(tesla);
+// name == "Nikola Tesla"
+
+exp = parser.parseExpression("name == 'Nikola Tesla'");
+boolean result = exp.getValue(tesla, Boolean.class);
+// result == true
+```
+
+#### 4.1.1 理解`EvaluationContext`
+
+`EvaluationContext`接口被用来计算表达式解析属性，方法或者域，以及帮助完成类型转换。`Spring`提供了两个实现：
+
+- `SimpleEvaluationContext`：支持`SpEL`语言特性，配置选项的一部分，至于表达式的种类，他不要求对`SpEL`语法的完全扩展，并且应该被有意义的限制。包括但不限于数据绑定表达式和基于属性的过滤器。
+- `StandardEvaluationContext`：支持`SpEL`语言的全部特性和配置选项。可以用它来指定一个默认根对象并且配置每个可获得的计算相关的策略。
+
+`SimpleEvaluationContext`被设计只支持`SpEL`语言语法的一部分。它派出了`java`类型引用，构造器和`bean`引用。他也要求在表达式中显式选择支持属性和方法的等级。默认的，`create()`静态工厂方法只能读取访问属性。你可以获得一个建造器来配置精确的支持需要，一个目标或者多种组合的等级，如下：
+
+- 仅自定义的`PropertyAccessor`（无反射）
+- 只读属性的数据绑定
+- 读写属性的数据绑定
+
+  **类型转换**：
+
+默认的，`SpEL`使用`Spring`内核中的转换服务（`org.springframework.core.convert.ConversionService`）这个转换服务有很多内置转换器来执行常见的转换，你也可以自定义类型之间的转换类扩展它。他还是泛型可感知的。这意味着，当你在表达式中使用泛型的时候，`SpEL`会尝试维护类型的正确性（换句话说，就是你可以使用泛型，而不用手动维护类型的正确性）。
+
+这在实践中意味着什么？假设`setValue()`被用来设置一个`List`属性。属性的类型是`List<Boolean>`。`Spring`会在将值放入以前，识别并转换成`Boolean`类型。下面展示了如何实现：
+
+```java
+class Simple {
+    public List<Boolean> booleanList = new ArrayList<Boolean>();
+}
+
+Simple simple = new Simple();
+simple.booleanList.add(true);
+
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+
+// "false" is passed in here as a String. SpEL and the conversion service
+// will recognize that it needs to be a Boolean and convert it accordingly.
+parser.parseExpression("booleanList[0]").setValue(context, simple, "false");
+
+// b is false
+Boolean b = simple.booleanList.get(0);
+```
+
+#### 4.1.2 分析器配置
+
+通过分析器配置对象（`org.springframework.expression.spel.SpelParserConfiguration`）可以配置`SpEL`表达式。配置对象可以控制一些表达式内容的行为。例如，如果你用下标访问一个数组或者集合，并且这个指定的位置是`null`，`SpEL`可以自动创建一个元素。这在使用链式属性引用的时候是很有用的。当你访问的下标超过了当前数组或者列表的大小，`SpEL`可以自动扩容。为了将一个元素添加到指定位置，`SpEL`会试图在设置指定值之前使用元素的默认构造器。如果没有默认构造器，会添加一个`null`到对应位置。下面说明了如何自动增长列表：
+
+```java
+class Demo {
+    public List<String> list;
+}
+
+// Turn on:
+// - auto null reference initialization
+// - auto collection growing
+SpelParserConfiguration config = new SpelParserConfiguration(true, true);
+
+ExpressionParser parser = new SpelExpressionParser(config);
+
+Expression expression = parser.parseExpression("list[3]");
+
+Demo demo = new Demo();
+
+Object o = expression.getValue(demo);
+
+// demo.list will now be a real collection of 4 entries
+// Each entry is a new empty String
+```
+
+#### 4.1.3 SpEL 编译
+
+`Spring`框架4.1包含了一个基础表达式编译器。表达式通常会被整合，这提供了计算时的很多动态灵活性，但不提供优化表现。对于偶尔出现的表达式用例来说，这还好。但，当使用其他内容，如`Spring`整合，表现就很重要，并且这里没有对于动态性的需求。
+
+`SpEL`编译器试图定位这种需求。在计算的时候，编译器会在运行时创建一个体现表达式行为的类，并且用这个类来实现更快速的表达式计算。由于缺乏表达式的键入，编译器在执行编译时使用在表达式的解释性求值期间收集到的信息。例如，他没法从单从表达式知道属性引用的类型，但在第一次进行解释计算的时候，它可以知道。当然，基础的编译在这种衍生信息上可以导致问题，例如这个变量表达式元素的类型在这期间改变了。出于这个原因，编译最好用于类型信息不改变或者在重复计算期间不改变的表达式。
+
+考虑下面的表达式：
+
+```
+someArray[0].someProperty.someOtherProperty < 0.1 
+```
+
+因为前面的表达式包括了数组访问，一些属性取消引用，以及数字操作，它的表现可能非常值得注意。在微测试集运行50000次迭代，通过解释器他花了75毫秒来计算，而通过表达式的编译版本仅仅花了3毫秒。（这里就和`JVM`的即时编译器和解释器类似了）。
+
+**编译器配置**：
 
