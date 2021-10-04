@@ -2715,3 +2715,404 @@ someArray[0].someProperty.someOtherProperty < 0.1
 
 **编译器配置**：
 
+编译器默认不开启，但是你可以有两种不同方式打开它。可以通过使用分析器配置进程（前面讨论过）或者当`SpEL`用例被嵌入另一个容器的时候使用`Spring`属性来开启。这一节讨论这些选项。
+
+编译器可以有三个中的一种模式，在枚举类`org.springframework.expression.spel.SpelCompilerMode`中。模式如下：
+
+- `OFF`（默认）：编译器关闭。
+- `IMMEDIATE`：立即模式，表达式会尽快编译。通常发生在第一次解释计算之后。如果编译表达式失败（通常由于类型改变，如前所述），表达式计算的调用器会收到一个异常。
+- `MIXED`：混合模式，表达式悄悄地在解释计算和编译计算中切换。在几轮解释执行之后，交换到编译模式。如果编译模式发生错误（如类型改变），表达式又自动切换到解释执行模式。（就类似于`JVM`，只不过这里编译模式可能发生错误，而要切换回解释执行模式）。
+
+`IMMEDIATE`模式存在的原因是`MIXED`模式在有边际效益的表达式的时候会导致问题。如果编译表达式在部分执行成功之后失败了，但它可能已经对整个系统的状态造成了一些影响。如果这个发生了，调用者也许不会想要它悄悄地再用解释执行模式再执行，因为这个时候表达式的一部分可能会运行两次。
+
+选择一个模式之后，使用`SpelParserConfiguration`来配置分析器。下面展示如何实现：
+
+```java
+SpelParserConfiguration config = new SpelParserConfiguration(SpelCompilerMode.IMMEDIATE,
+        this.getClass().getClassLoader());
+
+SpelExpressionParser parser = new SpelExpressionParser(config);
+
+Expression expr = parser.parseExpression("payload");
+
+MyMessage message = new MyMessage();
+
+Object payload = expr.getValue(message);
+```
+
+当你指定比编译模式的时候，你可以同时指定一个类加载器（如上面的例子，当然也可以传递一个`null`）。编译后的表达式再所提供的任何子类加载器下创建的子类加载器中定义的。需要确保，类加载器被指定的时候，它能够知道表达式计算过程中用到的任何类型。如果不指定类加载器，会使用默认类加载器（通常是专门加载表达式计算期间运行线程的上下文类加载器）。
+
+第二个方法是用于`SpEL`嵌入到一些其他容器，并且他也许不能通过配置对象来配置。在这些情况下，可以通过`JVM`系统属性来设置`spring.expression.compiler.mode`属性（或者通过[SpringProperties](https://docs.spring.io/spring-framework/docs/current/reference/html/appendix.html#appendix-spring-properties)机制）。
+
+**编译器限制**：
+从`Spring`框架4.1开始，就内置了基础编译框架。然而，框架还不支持编译任何一种表达式。一开始聚焦于可能在聚焦性能的上下文容器中使用的普通表达式。下面展示了目前不能编译的表达式类型：
+
+- 包含赋值的表达式
+- 依赖对话服务的表达式
+- 使用自定义解析器或者访问器的表达式
+- 使用选择或者`projection`的表达式
+
+### 4.2 `bean`定义中的表达式
+
+可以在使用基于`XML`的或者基于注解的配置元数据使用`SpEL`来定义`BeanDefinition`实例。两种情况下，表达式定义的语法都是：`#{ <expression string> }`。
+
+#### 4.2.1 `XML`配置
+
+属性或者参数值可以使用表达式设置，如下：
+
+```xml
+<bean id="numberGuess" class="org.spring.samples.NumberGuess">
+    <property name="randomNumber" value="#{ T(java.lang.Math).random() * 100.0 }"/>
+
+    <!-- other properties -->
+</bean>
+```
+
+应用上下文容器中的所有`bean`都可以通过普通`bean`名字来作为预定义变量访问。包括了标准上下文`bean`，如`environment`（类型为`org.springframework.core.env.Environment`）和`systemProperties`，以及`systemEnvironment`（类型是`Map<String, Object>`）来访问运行时环境。
+
+下面展示了将`systemProperties bean`作为`SpEL`变量访问：
+
+```xml
+<bean id="taxCalculator" class="org.spring.samples.TaxCalculator">
+    <property name="defaultLocale" value="#{ systemProperties['user.region'] }"/>
+
+    <!-- other properties -->
+</bean>
+```
+
+注意你无需用`#`作为预定义变量的前缀。
+
+你可以通过名字来引用其他`bean`的属性，如下：
+
+```xml
+<bean id="numberGuess" class="org.spring.samples.NumberGuess">
+    <property name="randomNumber" value="#{ T(java.lang.Math).random() * 100.0 }"/>
+
+    <!-- other properties -->
+</bean>
+
+<bean id="shapeGuess" class="org.spring.samples.ShapeGuess">
+    <property name="initialShapeSeed" value="#{ numberGuess.randomNumber }"/>
+
+    <!-- other properties -->
+</bean>
+```
+
+#### 4.2.2 注解配置
+
+略。todo
+
+### 4.3 语言引用
+
+这部分包括如下的主题：
+
+- 文本表达式
+- 属性，数组，列表，`Map`和`Indexers`
+- 内联列表
+- 内联`Map`
+- 数组构造
+- 方法
+- 操作符
+- 类型
+- 构造器
+- 变量
+- 函数
+- `bean`引用
+- 三元操作符（`if-then-else`）
+- `Elvis`操作符
+- 安全导航操作符？（`safe navigation`操作符）
+
+#### 4.3.1 文本表达式（或者叫字面量表达式？）
+
+文本表达式支持字符串，数值（`int,real,hex`），布尔值，和空值（`null`）。字符串用单引号限定。想要在里面放置一个但引号本身，使用两个单引号来表示这个字符。
+
+下面展示了文本表达式的简单用例。通常，他们不会孤立的使用，而是作为复杂表达式的一部分——例如，在逻辑比较操作符的一端使用文本表达式。
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+
+// evals to "Hello World"
+String helloWorld = (String) parser.parseExpression("'Hello World'").getValue();
+
+double avogadrosNumber = (Double) parser.parseExpression("6.0221415E+23").getValue();
+
+// evals to 2147483647
+int maxValue = (Integer) parser.parseExpression("0x7FFFFFFF").getValue();
+
+boolean trueValue = (Boolean) parser.parseExpression("true").getValue();
+
+Object nullValue = parser.parseExpression("null").getValue();
+```
+
+数字支持负号，指数以及小数点。默认用`Double.parseDouble()`来解析数字。
+
+#### 4.3.2 属性，数组，列表，Maps和Indexers
+
+使用属性引用来导航很容易（是指用`ref`来引用其他`bean`吗？）为了实现这个，使用一个`period`来表示一个内嵌属性值。`Inventor`的两个类实例，`pupin`和`tesla`，有后面描述的各种数据。为了导航进入对象图，并且获得`Tesla`对象的出生年份和`pupin`出生的城市，我们有如下的表达式：
+
+```java
+// evals to 1856
+int year = (Integer) parser.parseExpression("birthdate.year + 1900").getValue(context);//这里为啥传context，这个context是啥？
+
+String city = (String) parser.parseExpression("placeOfBirth.city").getValue(context);
+```
+
+> 属性名的第一个字母允许不区分大小写。因此，上面的例子也可以写成首字母大写的形式。除此之外，这些属性也许会可选择性的通过方法调用来访问——例如，`getPlaceOfBirth().getCity()`，来取代`placeOfBirth.city`。
+
+<span style="color:red">根据后面的内容，我觉得这个`context`代表了容器，这段应该是在容器中要么寻找这个值，要么创建了一个这个值。</span>
+
+数组和列表使用方括号来访问，如下：
+
+```java
+ExpressionParser parser = new SpelExpressionParser();
+EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+
+// Inventions Array
+
+// evaluates to "Induction motor"
+String invention = parser.parseExpression("inventions[3]").getValue(
+        context, tesla, String.class);
+
+// Members List
+
+// evaluates to "Nikola Tesla"
+String name = parser.parseExpression("members[0].name").getValue(
+        context, ieee, String.class);
+
+// List and Array navigation
+// evaluates to "Wireless communication"
+String invention = parser.parseExpression("members[0].inventions[6]").getValue(
+        context, ieee, String.class);
+```
+
+`map`属性可以通过在方括号中指定字面量`key`值。如下，`officers`的`key`是字符串，所以我们使用字符串字面量：
+
+```java
+// Officer's Dictionary
+
+Inventor pupin = parser.parseExpression("officers['president']").getValue(
+        societyContext, Inventor.class);
+
+// evaluates to "Idvor"
+String city = parser.parseExpression("officers['president'].placeOfBirth.city").getValue(
+        societyContext, String.class);
+
+// setting values
+parser.parseExpression("officers['advisors'][0].placeOfBirth.country").setValue(
+        societyContext, "Croatia");
+```
+
+#### 4.3.3 内联列表
+
+可以直接在表达式中使用`{}`符号来表达列表：
+
+```java
+// evaluates to a Java list containing the four numbers
+List numbers = (List) parser.parseExpression("{1,2,3,4}").getValue(context);
+
+List listOfLists = (List) parser.parseExpression("{{'a','b'},{'x','y'}}").getValue(context);
+```
+
+`{}`它本身意味着空列表。考虑性能因素，如果列表本身由固定字面量组成，常量列表会创建来代替这个表达式（而不是为每一个计算建一个新的列表）。
+
+#### 4.3.4 内联Map
+
+你也可以通过`{key:value}`来直接表示`map`。如下展示：
+
+```java
+// evaluates to a Java map containing the two entries
+Map inventorInfo = (Map) parser.parseExpression("{name:'Nikola',dob:'10-July-1856'}").getValue(context);
+
+Map mapOfMaps = (Map) parser.parseExpression("{name:{first:'Nikola',last:'Tesla'},dob:{day:10,month:'July',year:1856}}").getValue(context);
+```
+
+`{:}`本身代表空`map`。考虑性能，如果`map`由固定字面值或者其他内嵌常量构造器（`list`或者`map`），那么就会创建一个常量`map`来去取代表达式（而不是为每个表达式新建一个`map`）。`key`的引号是可选的。
+
+#### 4.3.5 构建数组
+
+可以使用类似`java`的语法来构建数组，可选的提供一个初始化器在构造的时候使用。如下：
+
+```java
+int[] numbers1 = (int[]) parser.parseExpression("new int[4]").getValue(context);
+
+// Array with initializer
+int[] numbers2 = (int[]) parser.parseExpression("new int[]{1,2,3}").getValue(context);
+
+// Multi dimensional array
+int[][] numbers3 = (int[][]) parser.parseExpression("new int[4][5]").getValue(context);
+```
+
+目前还不能给多维数组提供初始化器。
+
+#### 4.2.6 方法
+
+可以通过`java`编程语法来调用方法。可以通过字面值来调用方法。也支持变量参数。如下：
+
+```java
+// string literal, evaluates to "bc"
+String bc = parser.parseExpression("'abc'.substring(1, 3)").getValue(String.class);
+
+// evaluates to true
+boolean isMember = parser.parseExpression("isMember('Mihajlo Pupin')").getValue(
+        societyContext, Boolean.class);
+```
+
+#### 4.3.7 操作符
+
+`SpEL`支持下面的操作符：
+
+- 关系操作符
+- 逻辑操作符
+- 数学操作符
+- 赋值操作符
+
+**关系操作符**：
+
+关系操作符（等于，不等于，小于，小于等于，大于和大于等于或者等于）都能通过标准操作符来使用。如下：
+
+```java
+// evaluates to true
+boolean trueValue = parser.parseExpression("2 == 2").getValue(Boolean.class);
+
+// evaluates to false
+boolean falseValue = parser.parseExpression("2 < -5.0").getValue(Boolean.class);
+
+// evaluates to true
+boolean trueValue = parser.parseExpression("'black' < 'block'").getValue(Boolean.class);
+```
+
+> 对于大于小于在`null`的时候，任意非`null`都大于`null`。
+
+除了标准关系操作符，`SpEL`支持`instanceof`和基于常规表达式的`matches`操作符。如下：
+
+```java
+// evaluates to false
+boolean falseValue = parser.parseExpression(
+        "'xyz' instanceof T(Integer)").getValue(Boolean.class);
+
+// evaluates to true
+boolean trueValue = parser.parseExpression(
+        "'5.00' matches '^-?\\d+(\\.\\d{2})?$'").getValue(Boolean.class);
+
+// evaluates to false
+boolean falseValue = parser.parseExpression(
+        "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'").getValue(Boolean.class);
+```
+
+每个符号操作符都和纯字母的等价，如下：
+
+- `lt(<)`
+- `gt(>)`
+- `le(<=)`
+- `ge(>=)`
+- `eq(==)`
+- `ne(!=)`
+- `div(/)`
+- `mod(%)`
+- `not(!)`
+
+所有的文本操作符都大小写敏感。
+
+**逻辑操作符**：
+
+提供如下的逻辑操作符：
+
+- `and(&&)`
+- `or(||)`
+- `not(!)`
+
+如下例子：
+
+```java
+// -- AND --
+
+// evaluates to false
+boolean falseValue = parser.parseExpression("true and false").getValue(Boolean.class);
+
+// evaluates to true
+String expression = "isMember('Nikola Tesla') and isMember('Mihajlo Pupin')";
+boolean trueValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+
+// -- OR --
+
+// evaluates to true
+boolean trueValue = parser.parseExpression("true or false").getValue(Boolean.class);
+
+// evaluates to true
+String expression = "isMember('Nikola Tesla') or isMember('Albert Einstein')";
+boolean trueValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+
+// -- NOT --
+
+// evaluates to false
+boolean falseValue = parser.parseExpression("!true").getValue(Boolean.class);
+
+// -- AND and NOT --
+String expression = "isMember('Nikola Tesla') and !isMember('Mihajlo Pupin')";
+boolean falseValue = parser.parseExpression(expression).getValue(societyContext, Boolean.class);
+```
+
+**数学操作符**：
+
+可以对字符串和数字使用`(+)`。可以使用`(-)`，`(*)`和`(/)`操作任何数字。可以使用`(%)`，`(^)`。如下例子：
+
+```java
+// Addition
+int two = parser.parseExpression("1 + 1").getValue(Integer.class);  // 2
+
+String testString = parser.parseExpression(
+        "'test' + ' ' + 'string'").getValue(String.class);  // 'test string'
+
+// Subtraction
+int four = parser.parseExpression("1 - -3").getValue(Integer.class);  // 4
+
+double d = parser.parseExpression("1000.00 - 1e4").getValue(Double.class);  // -9000
+
+// Multiplication
+int six = parser.parseExpression("-2 * -3").getValue(Integer.class);  // 6
+
+double twentyFour = parser.parseExpression("2.0 * 3e0 * 4").getValue(Double.class);  // 24.0
+
+// Division
+int minusTwo = parser.parseExpression("6 / -3").getValue(Integer.class);  // -2
+
+double one = parser.parseExpression("8.0 / 4e0 / 2").getValue(Double.class);  // 1.0
+
+// Modulus
+int three = parser.parseExpression("7 % 4").getValue(Integer.class);  // 3
+
+int one = parser.parseExpression("8 / 5 % 2").getValue(Integer.class);  // 1
+
+// Operator precedence
+int minusTwentyOne = parser.parseExpression("1+2-3*8").getValue(Integer.class);  // -21
+```
+
+**赋值操作符**：
+
+为了设置一个属性，可以通过赋值操作符`(=)`。这通常通过`setValue`的调用来完成，但也可以通过内部调用`getValue`来完成。如下：
+
+```java
+Inventor inventor = new Inventor();
+EvaluationContext context = SimpleEvaluationContext.forReadWriteDataBinding().build();
+
+parser.parseExpression("name").setValue(context, inventor, "Aleksandar Seovic");
+
+// alternatively
+String aleks = parser.parseExpression(
+        "name = 'Aleksandar Seovic'").getValue(context, inventor, String.class);
+```
+
+#### 	4.3.8 类型
+
+...后面的部分我想先跳过。这么看我觉得没有太大作用。有点浪费时间的感觉。
+
+我觉得这部分，在使用的时候来查看比较好。
+
+略。todo
+
+## 5 使用`Spring`的面向切面编程
+
+
+
+
+
