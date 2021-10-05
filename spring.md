@@ -3112,6 +3112,50 @@ String aleks = parser.parseExpression(
 
 ## 5 使用`Spring`的面向切面编程
 
+面向切面编程（`Aspect-oriented Programming`缩写`AOP`）通过提供另一种看待程序结构的方法实现了对面向对象编程的补充。`OOP`中模块化最重要的单元是类，而在`AOP`中最重要的是切面（`aspect`）。切面支持跨多个类型和对象考虑（例如事务管理）的模型化。（在`AOP`中，这样的考虑通常被称为“横切`crosscutting`”考虑）。
+
+`AOP`是`Spring`的一个关键内容。尽管`IoC`容器并不依赖于`AOP`（意味着如果不想就可以不用`AOP`），但`AOP`确实完善了`IoC`，提供了一个非常强大的中间件解决方案。
+
+**Spring AOP with AspectJ pointcuts**：
+
+`Spring`提供简单有力的方法来写自定义切面，可以通过基于模式的方法（`schema-based approach`）或者`@AspectJ`注解风格。两种风格都提供完整的类型建议？以及使用`AspectJ`切点语言，同时仍然会使用`Spring AOP`来`weaving`？。
+
+这章节讨论基于模式的和基于`@AspectJ`的`AOP`支持。更低级的`AOP`支持在下一章进行讨论。
+
+`AOP`在`Spring`框架张用来：
+
+- 提供声明性的企业服务。最重要的服务是[声明事务管理](https://docs.spring.io/spring-framework/docs/current/reference/html/data-access.html#transaction-declarative)。
+- 让用户实现自定义切面，用`AOP`来补充`OOP`编程。
+
+### 5.1 AOP概念
+
+让我们来定义一下`AOP`的核心概念和术语。这些协议并不是`Spring`指定的。不幸的是，`AOP`的术语并不直观。然而，如果`Spring`使用自己的术语，可能会更令人困扰。
+
+- `Aspect`切面：一个横跨多个类的关注点的模块化（或者说抽象？）。事务管理就是企业应用中一个横切关注点的例子。在`Spring AOP`中，切面使用普通类（基于模式的方法）或者带有`@Aspect`注解（`@AspectJ`方法）的普通来来实现。
+- `Join point`连接点？：程序执行期间的一个点，例如一个方法的执行，或者异常的处理。在`Spring AOP`中，连接点总是代表一个方法的执行。
+- `Advice`建议？增强？：切面在一个特殊连接点所做的动作。`advice`包含多种类型，如`around`，`before`和`after`。许多`AOP`框架，包括`Spring`，都会将`advice`建模成一个拦截器（`interceptor`）并且在连接点附近维护一个拦截器链。
+- `Pointcut`切点：匹配连接点的谓词？（意思是`pointcut`代表的是匹配（连接点）？）。`advice`和`pointcut`总是联系在一起，并且会在任何被切点匹配的连接点运行。（例如，使用特定名称来执行一个方法）。连接点作为切点表达式匹配的概念是`AOP`的核心，`Spring`默认使用`AspectJ`切点表达式语言。
+- `Introduction`：代表类型声明额外的方法或者域。`Spring AOP`让你可以引入新的接口（和一个对应的实现）到任何`advised`增强了的对象上。例如，你可以使用`introduction`来让一个`bean`实现`IsModified`接口，来简化缓存。（`Introduction`在`AspectJ`社区中也被称为类型间声明）。
+- `Target object`目标对象：被一个或多个切面`advise`的对象。也称为`advised object`增强了的对象。因为`Spring AOP`通过使用运行时代理实现的，所以这个对象总是一个代理对象。
+- `AOP proxy`代理：为了实现切面协议而被`AOP`框架创建的对象。（增强了方法执行等）在`Spring`框架中，`AOP`代理是`JDK`动态代理或者`CGLIB`代理。
+- `Weaving`织入：连接切面和其它应用类型或者对象来创建一个`advised object`增强对象。这可以在编译期（使用`AspectJ`编译器），加载期或者运行时完成。`Spring AOP`，就如同其它纯净的`AOP`框架一样，在运行时执行织入。
+
+`Spring AOP`有以下的几种增强（`advice`）：
+
+- `Before advice`：在连接点之前运行，但不能避免执行流进入连接点（除非抛出异常）。
+- `After returning advice`：在连接点正常完成之后运行的增强。（例如，如果一个方法没有抛出异常并返回）
+- `After throwing advice`：当方法通过抛出异常退出的时候，会执行的增强。
+- `After (finally) advice`：无论连接点以什么方式退出（正常退出或者抛出异常退出）都会执行的增强。
+- `Around advice`：连接点附近的增强，例如一个方法调用。这是最强大的增强。`Around advice`可以在方法调用前后执行自定义行为。它也可以负责选择是否进入连接点，或者通过返回自己的返回值或者抛出异常来终止增强方法的执行。
+
+`Around advice`是最通用的增强。因为`Spring AOP`，像`AspectJ`，提供完整的增强了类型，所以推荐使用能够完成指定行为的最小增强类型。使用更精准的增强类型提供更简单的编程模型，也更少可能导致错误。
+
+所有的增强参数都是静态类型的，所以你应该用合适的类型来使用增强参数，而不是使用对象数组。
+
+由切点匹配的连接点的概念是`AOP`的关键，这也是将它和只提供拦截器的古老技术区分的点。切点使得增强成为独立于对象切面层次结构的目标。
+
+### 5.2 `Spring AOP`的能力和目标
+
 
 
 
