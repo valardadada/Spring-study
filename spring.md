@@ -3156,7 +3156,365 @@ String aleks = parser.parseExpression(
 
 ### 5.2 `Spring AOP`的能力和目标
 
+`Spring AOP`以纯`Java`的方式实现。不需要特殊的编译进程。 `Spring AOP`也不需要控制类加载的层级，因此很适合在`servlet`容器或者应用服务器上使用。
+
+`Spring AOP`目前只支持方法执行作为连接点（增强`Spring bean`的方法执行）。域拦截还没有实现，尽管在不破坏`Spring AOP`接口的情况下就可以添加对域拦截的支持。如果需要增强域访问并且更新连接点，考虑使用`AspectJ`之类的语言。
+
+`Spring AOP`实现`AOP`的方法和其他大部分`AOP`框架都不一样。目的不是提供最完整的`AOP`实现（尽管`Spring AOP`有很多能力）。而是提供一个和`Spring IoC`紧密结合的`AOP`，来帮助解决企业应用中常见的问题。
+
+因此，`Spring`框架的`AOP`实现功能通常与`Spring IoC`容器一起使用。切面通过使用普通`bean`定义来配置（虽然这允许强大的自动代理能力）。这是和其他`AOP`实现的一个重要区别。你不能很轻松的或者很高效率的使用`Spring AOP`来完成一些工作，例如，你不能增强非常细粒度的对象（通常， 领域对象？）。切面是那种情况下最好的选择。 然而，从我们的经验来看，`Spring AOP`为大多数企业`java`应用的问题提供了最好的解决办法。
+
+`Spring AOP`从在提供一个可理解的`AOP`解决办法的方面与`AspectJ`比较而努力。我们相信基于代理的框架，例如`Spring AOP`和完全成熟的框架，如`AspectJ`都是有价值的，并且他们可以互补，而不是相互竞争。（格局！）`Spring`无缝整合了`Spring AOP`和`IoC`到`AspectJ`，为了使得在基于`Spring`的应用结构中使用`AOP`的全部功能。这个整合不会影响`Spring AOP API`和`AOP Alliance API`。`Spring AOP`保留了后向兼容性。
+
+> `Spring`框架的信条之一是`non-invasiveness`不侵入性。
+
+### 5.3 AOP 代理
+
+`Spring AOP`默认为`AOP`代理使用标准`JDK`动态代理。这允许任何接口（或者接口集合）被代理。
+
+`Spring AOP`也可以使用`CGLIB`代理。这对代理类而不是接口来说很重要。默认的，`CGLIB`会在业务对象没有实现接口的时候被使用。由于编程到一个接口而不是类是更好的实践，业务类可能通常实现一个或者多个业务接口。所以也可以强制使用`CGLIB`，在那些你需要增强一个没有在接口上实现的方法或者你需要传递一个代理对象到方法的接口的情况下。
+
+认识到`Spring AOP`是基于代理的是很重要的。可以查看[理解AOP代理](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#aop-understanding-aop-proxies)。
+
+### 5.4 @AspectJ支持
+
+`@AspectJ`指的是一种使用注解将普通`java`类声明为切面的风格。`@AspectJ`风格在`AspectJ`5发布版中被引进到`AspectJ`项目。`Spring`使用和`AspectJ5`一样的注解，通过使用由`AspectJ`提供的解析和匹配切点的库来实现。 `AOP`运行时仍然是纯净的`Spring AOP`，并且这里对`AspectJ`编译器或者织入器没有依赖。
+
+> 使用`AspectJ`编译器可以使用`AspectJ`语言的全部特性。
+
+#### 5.4.1 开启@AspectJ支持
+
+要在`Spring`配置中使用`@AspectJ`切面，你需要开启基于`@AspectJ`切面的`Spring AOP`配置支持，以及配置他们是否被这些切面增强来设置自动代理的`bean`。说自动代理，指的是`Spring`决定被一个或者多个切面增强的`bean`，为它自动产生一个代理来拦截方法调用，并且确保增强在需要的时候能够运行。
+
+`@AspectJ`支持可以通过`XML`或者`Java`风格的配置来开启。无论哪种情况，你都需要确保`AspectJ`的`aspectjweaver.jar`库在应用的类路径上。
+
+**使用`java`配置来开启`@AspectJ`支持**：
+
+使用`@Configuration`和`@EnableAspectJAutoProxy`注解来开启`@AspectJ`的支持：
+
+```java
+@Configuration
+@EnableAspectJAutoProxy
+public class AppConfig {
+
+}
+```
+
+**使用`XML`配置来开启`@AspectJ`的支持**：
+
+使用`aop:aspectj-autoproxy`元素来配置：
+
+```xml
+<aop:aspectj-autoproxy/>
+```
+
+#### 5.4.2 声明切面
+
+启用`@AspectJ`之后，应用上下文容器中定义的带有`@AspectJ aspect`类（有`@AspectJ`注解）的任何`bean`都会自动被`Spring`检测，并用来配置`Spring AOP`。下面展示了切面的最小定义（但是个无用的切面）
+
+第一个是一个普通`bean`定义指向了一个有`@AspectJ`注解的类：
+
+```xml
+<bean id="myAspect" class="org.xyz.NotVeryUsefulAspect">
+    <!-- configure properties of the aspect here -->
+</bean>
+```
+
+第二个展示了这个无用切面类，使用`org.aspectj.lang.annotation.Aspect`注解；
+
+```java
+package org.xyz;
+import org.aspectj.lang.annotation.Aspect;
+
+@Aspect
+public class NotVeryUsefulAspect {
+
+}
+```
+
+切面（有`@AspectJ`注解）可以有方法和域，和其他任何类一样。他们也可以有切点，增强和引入（`introduce`）声明。
+
+> 在Spring AOP中，切面不能称为其他切面的目标。@AspectJ注解标识一个类称为切面，并且因此，排除在自动代理之外。
 
 
 
+#### 5.4.3 声明切点
 
+切点决定了连接点的兴趣？并且因此可以让我们控制何时运行增强。`Spring AOP`只支持为`Spring bean`设置方法连接点，所以可以将切点视为`Spring bean`上匹配方法的执行。 切点的声明包含两个部分：一个包含名字和其他参数的签名，一个决定了我们关注的哪一个方法将被执行的切点表达式。在`@AspectJ`注解风格的`AOP`中，切点签名可以通过一个常规方法定义来提供，切点表达式由`@Pointcut`注解来表明（作为切点签名的方法的返回类型必须是`void`）。
+
+举个例子来解释切点签名和切点表达式的区别。下面那定义了要给叫做`anyOldTransfer`的切点来匹配任何叫做`transfer`的方法的执行：
+
+```java
+@Pointcut("execution(* transfer(..))") // the pointcut expression
+private void anyOldTransfer() {} // the pointcut signature
+```
+
+上面的切点表达式是常规的`AspectJ`的切点表达式。更全面的`AspectJ`切点语言的讨论，可以查看[AspectJ编程指导](https://www.eclipse.org/aspectj/doc/released/progguide/index.html)。
+
+**支持切点指示符**：
+
+`Spring AOP`支持在切点表达式中使用下列的切点指示符（`PCD pointcut designators`）：
+
+- `execution`：用来匹配方法执行连接点。这是基础的/主要的切点指示器。
+- `within`：限制匹配确定类型中的连接点。（匹配有特定类型的方法执行）
+- `this`：限制匹配`bean`引用是给定类型实例的连接点。
+- `target`：限制匹配目标对象是指定类型的实例的连接点。
+- `args`：限制匹配参数是指定类型实例的连接点。
+- `@target`：限制匹配执行对象有指定类型注解的类的连接点。
+- `@args`：限制匹配实参的运行时有指定类型注解的连接点。
+- `@within`：限制匹配有指定注解类型的连接点。
+- `@annotation`：限制连接点的`subject`有给定的注解。
+
+> 目前还有很多不支持的切点类型，如果使用了就会抛出异常。
+
+因为`Spring AOP`限制智能匹配方法的执行连接点，所以上面的切点指示器的概念是一个较窄的定义。
+
+`Spring`支持叫做`bean`的额外`PCD`。这个`PCD`限制你匹配某个特定的`bean`，或者`Spring bean`的集合（通过通配符）。其定义方式如下：
+
+```java
+bean(idOrNameOfBean)
+```
+
+`idOrNameOfBean`支持`Spring bean`的名字，或者受限于只能使用`*`的通配符。和其他切点指示器一样，可以使用逻辑操作符。
+
+**合并切点表达式**：
+
+可以通过逻辑操作符来合并表达式。也可以通过切点表达式的名字来引用它。如下所示：
+
+```java
+@Pointcut("execution(public * *(..))")
+private void anyPublicOperation() {} 
+
+@Pointcut("within(com.xyz.myapp.trading..*)")
+private void inTrading() {} 
+
+@Pointcut("anyPublicOperation() && inTrading()")
+private void tradingOperation() {} s
+```
+
+第一条匹配任何`public`方法的执行，第二条匹配在`trading`模型中的任何方法=>第三条匹配`trading`模型中任何的`public`方法。
+
+**共享普通切点定义**：
+
+在写企业应用的时候，开发者常会想从好几个切面中引用应用的模型和操作集。我们推荐定义一个`CommonPointcuts`切面来捕获普通切点表达式。如下：
+
+```java
+package com.xyz.myapp;
+
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+
+@Aspect
+public class CommonPointcuts {
+
+    /**
+     * A join point is in the web layer if the method is defined
+     * in a type in the com.xyz.myapp.web package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.web..*)")
+    public void inWebLayer() {}
+
+    /**
+     * A join point is in the service layer if the method is defined
+     * in a type in the com.xyz.myapp.service package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.service..*)")
+    public void inServiceLayer() {}
+
+    /**
+     * A join point is in the data access layer if the method is defined
+     * in a type in the com.xyz.myapp.dao package or any sub-package
+     * under that.
+     */
+    @Pointcut("within(com.xyz.myapp.dao..*)")
+    public void inDataAccessLayer() {}
+
+    /**
+     * A business service is the execution of any method defined on a service
+     * interface. This definition assumes that interfaces are placed in the
+     * "service" package, and that implementation types are in sub-packages.
+     *
+     * If you group service interfaces by functional area (for example,
+     * in packages com.xyz.myapp.abc.service and com.xyz.myapp.def.service) then
+     * the pointcut expression "execution(* com.xyz.myapp..service.*.*(..))"
+     * could be used instead.
+     *
+     * Alternatively, you can write the expression using the 'bean'
+     * PCD, like so "bean(*Service)". (This assumes that you have
+     * named your Spring service beans in a consistent fashion.)
+     */
+    @Pointcut("execution(* com.xyz.myapp..service.*.*(..))")
+    public void businessService() {}
+
+    /**
+     * A data access operation is the execution of any method defined on a
+     * dao interface. This definition assumes that interfaces are placed in the
+     * "dao" package, and that implementation types are in sub-packages.
+     */
+    @Pointcut("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void dataAccessOperation() {}
+
+}
+```
+
+可以在其他任何地方引用这个里面的切点表达式。例如：
+
+```xml
+<aop:config>
+    <aop:advisor
+        pointcut="com.xyz.myapp.CommonPointcuts.businessService()"
+        advice-ref="tx-advice"/>
+</aop:config>
+
+<tx:advice id="tx-advice">
+    <tx:attributes>
+        <tx:method name="*" propagation="REQUIRED"/>
+    </tx:attributes>
+</tx:advice>
+```
+
+`<aop:config>`和`<aop:adivsor>`元素在基于模板的`AOP`支持中讨论。事务元素在[事务管理](https://docs.spring.io/spring-framework/docs/current/reference/html/data-access.html#transaction)中讨论。
+
+**例子**：
+
+`Spring AOP`最常用`execution`切点指示器。下面是这个表达式的格式：
+
+```
+execution(modifiers-pattern? ret-type-pattern declaring-type-pattern? name-pattern(param-pattern) throws-pattern?)
+```
+
+除了返回值类型模式（`ret-type-pattern`）的所有部分，都是可选的内容。方法的返回值类型必须设置来决定匹配哪种连接点。`*`通常用作返回值匹配类型模式。他匹配任意返回值类型。全限定类型名只匹配返回给定类型的方法。`name-pattern`匹配方法名。可以指定声明类型模式，包括点号可以用在里面。`parameters pattern`就更复杂了：`()`匹配没有参数的方法，`(..)`匹配任意多个参数（没有或者多个）。`(*)`匹配一个任意类型参数的方法。`(*,String)`匹配有两个参数，并且第二个参数必须是`String`的方法。
+
+下面是一些例子：
+
+```
+execution(public * *(..)) //任何public方法
+execution(* set*(..)) //任何以set开始的方法
+execution(* com.xyz.service..*.*(..)) //定义在service包中的任何方法
+execution(* com.xyz.service.AccountService.*(..)) //由AccountService接口定义的任何方法
+...
+```
+
+**如何写一个好的切点**：
+
+略。todo.
+
+#### 5.4.4 声明增强
+
+增强是和切点表达式想联系的，可以运行在它匹配的切点的前，后，附近。
+
+**前置增强（Before Advice）**：
+
+可以使用`@Before`注解在切面中声明一个前置增强。
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("com.xyz.myapp.CommonPointcuts.dataAccessOperation()")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+如果有合适的切点表达式，可以修改上面的代码：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
+
+@Aspect
+public class BeforeExample {
+
+    @Before("execution(* com.xyz.myapp.dao.*.*(..))")
+    public void doAccessCheck() {
+        // ...
+    }
+}
+```
+
+**返回之后的增强（After Returning Advice）**:
+
+使用`@AfterReturning`注解，其他都差不多。
+
+略去差不多的内容。
+
+有时候，在增强方法体内部需要访问返回值的实际值。你可以使用`@AfterReturning`绑定返回值的格式来获得返回值，如下：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterReturning;
+
+@Aspect
+public class AfterReturningExample {
+
+    @AfterReturning(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        returning="retVal")
+    public void doAccessCheck(Object retVal) {
+        // ...
+    }
+}
+```
+
+`returning`属性中的名字必须和增强方法中使用的参数名字相同。当方法执行返回了，返回值会传递给增强方法相应的参数值。而且类型也必须匹配。
+
+**抛出异常后的增强（After Throwing Advice）**：
+
+可以使用`@AfterThrowing`注解来声明。略。
+
+通常，会想要在抛出特定异常的时候调用增强，或者需要访问抛出的异常。可以使用`throwing`属性来限制匹配并且绑定异常到增强方法的参数。如下：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.AfterThrowing;
+
+@Aspect
+public class AfterThrowingExample {
+
+    @AfterThrowing(
+        pointcut="com.xyz.myapp.CommonPointcuts.dataAccessOperation()",
+        throwing="ex")
+    public void doRecoveryActions(DataAccessException ex) {
+        // ...
+    }
+}
+```
+
+`throwing`即将返回的异常和方法的`ex`参数绑定，也限制了必须是`DataAccessException`类型的异常。
+
+**After(Finally) Advice**：
+
+通过`@After`注解声明。略。
+
+**Around Advice**：
+
+通过`@Around`来声明。第一个参数必须是`ProceedingJoinPoint`的类型。在方法体中，在`ProceedingJoinPoint`调用`proceed()`会造成下面的方法运行。`proceed`方法可以传递参数`Object[]`。
+
+下面是一个例子：
+
+```java
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.ProceedingJoinPoint;
+
+@Aspect
+public class AroundExample {
+
+    @Around("com.xyz.myapp.CommonPointcuts.businessService()")
+    public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
+        // start stopwatch
+        Object retVal = pjp.proceed();
+        // stop stopwatch
+        return retVal;
+    }
+}
+```
+
+**Advice 参数**：
