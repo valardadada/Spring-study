@@ -162,3 +162,52 @@ import org.joda.time.LocalTime;
 
 `Maven`使用`surefire`来运行`unit`测试，默认会运行`src/test/java`里面所有`*Test`的文件。可以使用`mvn test`来测试。
 
+## 4. Uploading Files
+
+启动一个`Spring Boot MVC`应用，首先要一个启动器（`Starter`）。在这个例子里，`spring-boot-starter-thymeleaf`和`spring-boot-starter-web`依赖已经在`pom.xml`中声明了。为了使用`Servlet`容器来上传一个文件，需要注册一个`MultipartConfigElement`类（在`web.xml`中是`<multipart-config>`）。但`Spring boot`已经为你自动配置了。
+
+需要先处理`UploadingFilesApplication`类（`src/main/java/com/example/uploadingfiles/Uploading FilesApplication.java`）中：
+
+​	作为`Spring MVC`自动配置的一部分， `Spring Boot`为创建一个`MultipartConfigElement bean`并且让它做好上传文件的准备。
+
+**创建文件上传控制器**：
+
+需要新建一个`FileUploadController`，在（`src/main/java/example/uploadingfiles/FileUploadController.java`)中。
+
+`FileUploadController`使用了`@Controller`注解，让`Spring MVC`可以选择并在其中寻找执行的规则。每个方法都使用`@GetMapping`和`@PostMapping`来绑定到特定的路径，以及`HTTP`的行为。
+
+在这个例子中：
+
+- `GET /`：从`StorageService`中寻找已经上传的文件列表，并把它加载到`Thymeleaf`模板。它通过`MvcUriComponentsBuilder`来计算实际资源的链接。
+- `GET /files/{filename}`：加载资源，并通过`Content-Disposition`响应头部将它发送给浏览器下载。
+- `POST /`：处理一个多部份消息`file`，并且将它给到`StroageService`存储。
+
+**存储服务**：
+
+还需要提供一个存储服务（`StorageService`）的类，让控制器可以和存储层交互（例如文件系统）。放在`src/main/java/com/example/uploadingfiles/storage/StorageService.java`。
+
+**HTML模板**：
+
+还需要创建一个`HTML`模板，在`src/main/resources/templates/uploadForm.html`中。
+
+这个模板有三个部分：
+
+- 顶部的可选消息，`Spring MVC`在其中写入`flash`范围的消息。
+- 让用户上传文件的表单。
+- 从后端请求来的文件列表。
+
+**文件上传限制**：
+
+可以使用自动配置`MultipartConfigElement`来自动配置一些属性设置。
+
+下面其他的属性设置在`src/main/resources/application.properties`：
+
+```
+spring.servlet.multipart.max-file-size=128KB
+spring.servlet.multipart.max-request-size=128KB
+```
+
+**运行**：
+
+需要修改`UploadingFilesApplication`类本身，他需要一个引导`CommandLineRunner`来删除和重新创建文件夹。
+
