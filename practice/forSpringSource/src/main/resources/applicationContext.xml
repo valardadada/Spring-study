@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans-4.3.xsd">
+    <!-- 基于xml的配置 -->
+    <bean id="test" class="com.mycompany.pojo.Test4Spring">
+        <property name="id" value="777" />
+        <property name="student" ref="student01"/>
+    </bean>
+    <bean id="student01" class="com.mycompany.pojo.Student">
+        <property name="id" value="01"/>
+        <property name="name" value="xiaoming"/>
+    </bean>
+</beans>
