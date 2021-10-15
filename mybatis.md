@@ -120,3 +120,116 @@ MyBatis连接池提供三种配置类型：
 不考虑隔离会产生的3个问题：
 
 解决办法：
+
+### 动态sql
+
+- <if>
+
+  ```xml
+  <if test="username != null">
+  	and username = #{username}
+  </if>
+  ```
+
+- <foreach>
+
+  ```xml
+  <foreach collection="ids" open="and id in(" close=")" item="uid" separator=",">
+  	#{uid}
+  </foreach>
+  <!-- 用来动态查类似于where id in {1,2,3,4}这样的语句-->
+  ```
+
+- <where>
+
+  ```xml
+  <where>
+  	...
+  </where>
+  <!--用来添加不一定有的where条件-->
+  ```
+
+- <choose>
+
+- <sql> 抽取重复的语句
+
+### 多表联查
+
+表间关系：
+
+- 一对多
+- 一对一
+- 多对多
+
+使用resultMap来进行映射，一对一的时候使用<association>，一对多的时候用<collection>。
+
+### JNDI
+
+模仿windows注册表。key-value结构。（key是路径+变量名称）
+
+### 延迟加载
+
+**延迟加载**：在真正使用的时候，才发起查询，也叫按需加载，或者懒加载。
+
+**立即加载**：只要调用，就立马发起查询。
+
+如果关联数量少，如一对一或者多对一的时候，可以立即加载。反之应该延迟加载。
+
+在mybatis中实现：
+
+```xml
+<resultMap id="x" type="x">
+	<id property="id" column="xx"></id>
+	<result property="uid" column="uid"></result>
+	<!-- 延迟加载，需要在配置中打开lazyloadenable。 -->
+    <!-- select是查询对应uesr的select元素 -->
+    <association property="user" column="uid" javaType="user" select="com.mytest.dao.IUserDao.findById"> 
+    </association>
+    <!-- 对多的查询 -->
+    <!-- 大概是后面一部分关联内容的查询，通过另外一个select语句来查询-->
+    <collection property="user" ofType="account" select="com.mytest.xxx.findAccount">
+    </collection>
+</resultMap>
+<select id="findAll" resultMap="x">
+	select * from account;
+</select>
+```
+
+### 缓存
+
+**缓存**：存在内存中的临时数据。
+
+**作用**：减少和数据库交互次数，提高效率。
+
+**条件**：常查询，且不常改变。且数据是否正确对最终结果影响不大。（缓存和数据库可能不同步）
+
+**一级缓存**：mybatis中sqlsession对象的缓存，查询结果会暂存到sqlsession中提供的一部分区域中。结构为一个map，再次查询时会现在这个缓存中查询。sqlsession对象消失的时候，对应的缓存也消失。
+
+mybatis在调用增删改或者commit之类的方法的时候，会清空一级缓存，重新查询，使得缓存和数据库数据同步。
+
+**二级缓存**：二级缓存在sqlsessionfactory中，所有由这个sqlsessionfactory产生的sqlsession共享这个二级缓存。二级缓存中存储数据，而不是对象（没有转换为对象）不同sqlsession中使用的时候，会产生不同（引用不同）的同数据（属性相同）对象。
+
+**二级缓存的使用**：在mybatis中设置支持二级缓存（SqlMapConfig.xml）中配置。然后，让当前的映射文件支持二级缓存（在IUserDao.xml中配置）。最后让当前的操作支持二级缓存（在select标签中配置）。
+
+###  注解开发
+
+@Select, @Insert, @Delete, @Update。
+
+@Results->其实就是reslutMap
+
+@ResultMap->可以通过id来指定对应的@Results。
+
+#{}使用字符串拼接，${}参数占位符。
+
+@One，@Many
+
+```java
+@Result(id="accountMap", value={
+    @Result(id=true, column="id" , property="uid"),
+    ...
+    @Result(property = "user", column="uid", one=@One(select="com.mytest.dao.IUserDao.findById",fetchType=FetchType.EAGER))
+})
+//其中，one代表对应一个，使用Select指定的对应方法来查询，查询的字段是column字段。
+//一对多的时候是，@Many(select="xxxx.findAccountByUid" fetchType=xxx)。类似。
+```
+
