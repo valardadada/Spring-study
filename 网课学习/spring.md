@@ -57,7 +57,6 @@ BeanFactory 在创建核心容器的时候，创建对象采取的策略是采�
    - 使用默认构造函数创建：在配置文件中使用bean标签，配id，class，不配其它。
    - 使用普通工厂中的方法创建对象（使用某个类中的方法来创建对象，并存入spring容器）。在<bean>中指定factory-bean和factory-method来获取。
    - 使用静态工厂中的静态方法来创建对象，并存入spring容器。使用class来指定静态工程，然后用factory-method来指定调用静态工程的某个方法来创建需要的对象。
-
 2. bean的作用范围：修改<bean>的scope属性：
 
    - singleton：单例（默认
@@ -65,67 +64,161 @@ BeanFactory 在创建核心容器的时候，创建对象采取的策略是采�
    - request：作用于web应用的请求范围
    - session：作用于web应用的会话范围
    - global-session：作用域集群环境的会话范围（全局会话范围）当不是集群环境时，他就是session。
-
 3. bean的生命周期：
 
    - 单例对象：出生：容器创建时对象创建。活：容器还在，对象一直在。死亡：容器销毁，对象消亡。总结：于容器生命周期一致。
    - 多例对象：出生：按需创建。活：对象使用过程中一直活着（jvm来操作？）。死亡：垃圾回收机制来回收。总结：和普通new的对象差不多。
 
-   ### 注解方式：
 
-   需要在配置文件中指定使用注解，以及注解需要扫描的包。配置需要的标签不在beans的约束中，需要导入context名称空间和约束。
+### 注解方式：
 
-   > <context:component-scan base-package="xxx"/>
+需要在配置文件中指定使用注解，以及注解需要扫描的包。配置需要的标签不在beans的约束中，需要导入context名称空间和约束。
 
-   
+> <context:component-scan base-package="xxx"/>
 
-   **四类常用注解**：
+**四类常用注解**：
 
-   - 用于创建对象：作用与在xml中编写一个<bean>标签实现的功能一样
+- 用于创建对象：作用与在xml中编写一个<bean>标签实现的功能一样
 
-     - @Component：把当前类对象存入spring容器中。属性：value：用于指定bean的id，不写的时候，默认值为当前类名且首字母小写。
-     - @Controller：
-     - @Service：
-     - @Repository：
+  - @Component：把当前类对象存入spring容器中。属性：value：用于指定bean的id，不写的时候，默认值为当前类名且首字母小写。
+  - @Controller：
+  - @Service：
+  - @Repository：
 
-     他们几个的属性和作用与@Component一样，但是这些注解会让三层结构更清晰.
+  他们几个的属性和作用与@Component一样，但是这些注解会让三层结构更清晰.
 
-   - 用于注入数据：作用与在xml中的bean标签中写一个<property>标签的作用一样。使用注解的时候，set方法不是必须的了。
+- 用于注入数据：作用与在xml中的bean标签中写一个<property>标签的作用一样。使用注解的时候，set方法不是必须的了。
 
-     - @Autowired：自动按类型注入，只要容器中有唯一的一个bean对象的类型匹配（其实会，先匹配类型，然后匹配名称），就可以注入成功。可以出现在变量上，或者方法上。没有或有多个就无法注入，会抛出异常。
-     - @Qualifier：按类型注入的基础之上，再按名称注入，给类成员注入时不能单独使用，但给方法参数注入的时候可以。（给类的时候要和autowired一起，给方法的时候可以单独）
-     - @Resource：按id注入。可单独使用。
-     - @Value：注入基本类型和String。还可以使用SpEL。${表达式}。
+  - @Autowired：自动按类型注入，只要容器中有唯一的一个bean对象的类型匹配（其实会，先匹配类型，然后匹配名称），就可以注入成功。可以出现在变量上，或者方法上。没有或有多个就无法注入，会抛出异常。
+  - @Qualifier：按类型注入的基础之上，再按名称注入，给类成员注入时不能单独使用，但给方法参数注入的时候可以。（给类的时候要和autowired一起，给方法的时候可以单独）
+  - @Resource：按id注入。可单独使用。
+  - @Value：注入基本类型和String。还可以使用SpEL。${表达式}。
 
-     注：集合类型只能用XML注入
+  注：集合类型只能用XML注入
 
-   - 用于改变作用范围：作用与bean中的scope属性实现功能是一样的
+- 用于改变作用范围：作用与bean中的scope属性实现功能是一样的
 
-     @Scope：指定范围。（Singleton，Prototype等）
+  @Scope：指定范围。（Singleton，Prototype等）
 
-   - 与生命周期相关的：（了解）作用与bean中的init-method和destroy-method作用一样。
+- 与生命周期相关的：（了解）作用与bean中的init-method和destroy-method作用一样。
 
-     - @PreDestory：销毁前执行
-     - @PostConstruct：构造后执行
+  - @PreDestory：销毁前执行
+  - @PostConstruct：构造后执行
 
-   新的注解：
+新的注解：
 
-   - @Configuration：指定当前类是一个配置类（代替xml配置文件）
-   - @ComponentScan：用于通过注解指定spring在创建容器时需要扫描的包。
-   - @Bean：将当前方法返回值作为bean对象存入spring的ioc容器。默认id是当前方法的名称。
-   - @Import：导入其它配置类（传入某个类的字节码xxx.class）
-   - @PropertySource(xxx.propertites)。指定properties文件的位置。classpath:xxx.propertites，指定类路径下的文件。
+- @Configuration：指定当前类是一个配置类（代替xml配置文件）
+- @ComponentScan：用于通过注解指定spring在创建容器时需要扫描的包。
+- @Bean：将当前方法返回值作为bean对象存入spring的ioc容器。默认id是当前方法的名称。
+- @Import：导入其它配置类（传入某个类的字节码xxx.class）
+- @PropertySource(xxx.propertites)。指定properties文件的位置。classpath:xxx.propertites，指定类路径下的文件。
 
-   **细节**：使用注解配置方法的时候，如果方法有参数，spring框架会去容器中查找有没有可用的bean对象。（@Bean默认用autowired）
+**细节**：使用注解配置方法的时候，如果方法有参数，spring框架会去容器中查找有没有可用的bean对象。（@Bean默认用autowired）
 
-   这时候需要使用`AnnotationConfigApplicationConetxt`：传入配置类的字节码：
+这时候需要使用`AnnotationConfigApplicationConetxt`：传入配置类的字节码：
 
-   ```java
-   ApplicationContext ac = new AnnotationConfigApplicationContext(SpringConfiguration.class);
-   ```
+```java
+ApplicationContext ac = new AnnotationConfigApplicationContext(SpringConfiguration.class);
+```
 
-   **细节**：@Configuration注解在类当作AnnotationConfigApplicationContext的参数传入的时候，可以不写。但其它时候，或者有多个的时候，需要写。
+**细节**：@Configuration注解在类当作AnnotationConfigApplicationContext的参数传入的时候，可以不写。但其它时候，或者有多个的时候，需要写。
 
-   **细节**：在方法参数中使用@Qualifier：`public void test(@Qualifier("user01") User user)`。
+**细节**：在方法参数中使用@Qualifier：`public void test(@Qualifier("user01") User user)`。
 
-   
+### AoP
+
+**动态代理**：
+
+- 特点：字节码随用随创建，随用随加载
+
+- 作用：不修改源码的基础上对方法增强
+
+- 分类：
+
+  - 基于接口的动态代理：涉及的类：Proxy。使用Proxy中的newProxyInstance方法创建代理对象。对代理对象的要求：被代理类至少实现一个接口，如果没有则不能用。
+
+    - newProxyInstance方法的参数：
+
+      - ClassLoader：类加载器。用于加载代理对象的字节码，和被代理对象使用同样的类加载器。（user.getClass().getClassLoader()，user为被代理类）
+
+      - Class[]：字节码数组，用于代理对象和被代理对象有相同的方法。（user.getClass().getInterface()）
+
+      - InvocationHandler：用于提供增强的代码，写如何代理。一般写该接口的实现类，通常是匿名内部类。（new InvocationHandler()，执行被代理对象的任何接口方法都会经过该方法）
+
+        ```java
+        new InvocationHandler(){
+            //proxy->代理对象的引用
+            //method->当前执行的方法
+            //args->当前执行方法所需的参数
+            //返回值->和被代理对象的方法有相同的返回值
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) thorws Trowable{
+                //提供增强的代码
+                //可以从args获取输入的参数，下标从0开始
+          		return method.invoke(producer,args);      
+            }
+        };
+        ```
+
+        
+
+  - 基于子类的动态代理：要求第三方jar包的支持。如cglib。
+
+    - 涉及的类：Enhancer。cglib库提供
+
+    - 创建方法：Enhancer类中的create方法
+
+    - 条件：被代理对象不是最终类
+
+    - 参数
+
+      - Class：被代理对象的字节码
+      - CallBack：用于提供增强代码，一般写的是该类的子接口实现类：MethodInterceptor()。被代理对象任何方法会经过该方法。
+
+      ```java
+      Enhancer.create(user.getClass(), new  MethodInterceptor(){
+         @Override
+          public Object intercept(...){}//内容和上面的invoke一模一样
+      });
+      ```
+
+**概念**：AOP叫做面向切面编程，通过预编译方式和运行期动态代理实现程序功能的统一维护的一种技术。利用AOP可以对业务逻辑的各个部分进行隔离，使得业务逻辑之间的耦合度降低，提高程序的可重用性。
+
+**作用**：在程序运行期间，不对源码进行修改，而对已有方法进行增强。可以减少重复代码，提高开发效率。
+
+**AOP**代理的选择：可以选择代理的方式，基于子类或者基于接口。
+
+**术语**：
+
+- 连接点（Joinpoint）：指被拦截到的点，spring中指的方法，spring只支持方法类型的连接点。
+
+- 切入点（Pointcut）：被增强的连接点就叫切入点。（所有的方法都是连接点，切入点是真正被增强（代理）的点）
+
+- 通知/增强（advice）：拦截到切入点之后需要执行的事情。通知有前置，后置，异常通知和最终通知。环绕通知。
+
+  ```java
+  try{
+      //前置通知
+      xxx;
+      method.invoke(xxx,xxx);
+      //后置通知
+      xxx;
+  } catch (Exception e){
+      //异常通知
+      xxx;
+  } finally {
+  	//最终通知
+      xxx;
+  }
+  ```
+
+- 引介（Introduction）
+
+- 目标对象（Target）：被代理对象
+
+- 织入（Weaving）：把增强应用到目标对象来创建新对象的过程。Spring采用动态代理织入，AspectJ采用编译器织入和类装载期织入。
+
+- 代理（Proxy）：代理对象
+
+- 切面（Aspect）：切入点和通知的结合。
+
