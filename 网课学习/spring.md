@@ -319,6 +319,27 @@ public class TestAop {
 
 上面的代码，IService是接口，ImplService是实现类，尽管在声明bean的时候，service01声明为了ImplService类，但这里不能强转为ImplService，只能转为IService接口。这是因为动态代理的时候，会根据接口生成一个新的类，这个类只能cast到接口，不能cast到具体的实现类。
 
+**注**：实践遇到的问题2：
+
+使用注解配置的时候：
+
+```java
+@Aspect
+class Logger {
+
+    @Pointcut("execution(* com.mytest.service.impl.ImplService.*(..))")
+    public void pt1(){}
+
+    @Before("pt1()")
+    public void before(){
+        System.out.println("before log is recording");
+    }
+```
+
+需要注意的是，后面使用的切点配置，得使用`pt1()`，如果不带括号会报错。
+
+以及，在现在得spring版本中，@After执行的顺序已经正常了。
+
 ### spring中的jdbcTemplate
 
 用于和数据库进行交互，实现对表的CRUD操作。
