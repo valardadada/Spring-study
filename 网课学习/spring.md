@@ -304,6 +304,21 @@ public void aroundPrintlog(ProceedingJoinPoint pjp){
   //表示一个表达式为...叫做pt1的切点
   ```
 
+**注**：实践的时候遇到的问题：
+
+```java
+public class TestAop {
+    @Test
+    public void testBefore(){
+        ApplicationContext ac = new ClassPathXmlApplicationContext("aoptest.xml");
+        IService implService = (IService) ac.getBean("service01");
+        implService.saveAccount();
+    }
+}
+```
+
+上面的代码，IService是接口，ImplService是实现类，尽管在声明bean的时候，service01声明为了ImplService类，但这里不能强转为ImplService，只能转为IService接口。这是因为动态代理的时候，会根据接口生成一个新的类，这个类只能cast到接口，不能cast到具体的实现类。
+
 ### spring中的jdbcTemplate
 
 用于和数据库进行交互，实现对表的CRUD操作。
