@@ -222,3 +222,101 @@ ApplicationContext ac = new AnnotationConfigApplicationContext(SpringConfigurati
 
 - 切面（Aspect）：切入点和通知的结合。
 
+**基于xml的AOP配置**：
+
+1. 配置通知bean（增强bean）
+2. 使用aop:config标签表明开始AOP的配置
+3. 使用aop:aspect标签表名配置切面：
+   - id属性：切面的标识
+   - ref属性：指定通知类bean的id
+4. 在aop:aspect标签内部使用对应的标签来配置通知类型
+   - aop:before表示前置通知
+     - method：指使用增强bean的哪个方法
+     - pointcut：指定切入点表达式（格式：关键字execution，访问修饰符 返回值 包名...包名.类名.方法名(参数列表)。`execution(public void com.mytest.service.imp.AccountServiceImpl.saveAccount(int i)) `
+
+**切入点表达式**：表达式的解析需要使用aspectj依赖。
+
+通配：`* \*..\*.*(..)`。
+
+访问修饰符可以省略。
+
+返回值可以使用通配符表示任意返回值。
+
+包名可以使用通配符表示任意包，但有几级包，就需要多少个通配符。
+
+包名可以使用..表示当前包和其子包。
+
+类名和方法名可以使用通配符来实现 通配。
+
+参数列表可以直接写数据类型，可以使用通配符表示任意类型，但必须有参数，使用..表示有无参数，有参数可以任意。
+
+```xml
+<aop:config>
+    <!-- logger是增强bean -->
+	<aop:aspect id="logAdvice" ref="logger">
+    	<aop:before method="printlog" pointcut-ref="pt1"></aop:before>
+		<!-- 卸载切面内，只能在该切面内用 可写在更外一层，就所有的都可以用了，切点必须在切面前声明 -->
+        <aop:pointcut id="pt1" expression=""></aop:pointcut>
+    </aop:aspect>
+</aop:config>
+```
+
+**环绕通知**：在环绕通知中需要显示调用被代理的方法。
+
+使用ProceedingJoinPoint接口，该接口有一个proceed()方法，该方法来调用被代理的方法。
+
+```java
+public void aroundPrintlog(ProceedingJoinPoint pjp){
+    try{
+        //advice
+        Object[] args = pjp.getArgs();
+        pjp.proceed(args);//显示执行被代理对象的方法
+    	//advice
+    } catch (Exception e){
+        //advice
+    } finally{
+        //advice
+    }
+}
+```
+
+**基于注解的AOP**：
+
+需要配置文件中写：`<aop:aspectj-autoproxy/>`
+
+基于注解的AOP会导致最终通知在后置和异常通知之前调用。可以使用环绕通知来实现。
+
+- @Aspect：表示当前类是一个增强类
+
+- @Before：前置通知
+
+- @After：最终通知
+
+- @AfterReturning：后置通知
+
+- @AfterThrowing：异常通知
+
+- @Pointcut：表名该方法是一个切点
+
+  ```java
+  @Pointcut("execution(* com.mytest.service.impl.*.*(..))")
+  private void pt1(){}
+  //表示一个表达式为...叫做pt1的切点
+  ```
+
+### spring中的jdbcTemplate
+
+用于和数据库进行交互，实现对表的CRUD操作。
+
+spring的内置数据源：`DriverManagerDataSource`。
+
+略。
+
+### Spring中的事务
+
+javaEE体系进行分层开发，事务处理位于业务层，Spring提供了分层设计业务层的事务处理解决方案。
+
+Spring框架为我们提供了一组事务控制的接口。在spring-tx中。
+
+事务控制都是基于AOP的，可以使用编程方式或者配置方式实现。
+
