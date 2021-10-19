@@ -368,3 +368,78 @@ Spring框架为我们提供了一组事务控制的接口。在spring-tx中。
 
 事务控制都是基于AOP的，可以使用编程方式或者配置方式实现。
 
+**相关的依赖**：spring-tx
+
+**相关接口**：PlatformTransactionManager
+
+**常用实现类**：DataSourceTransactionManager
+
+**事件定义类**：TransactionDefinition
+
+- getName()：获取事务名称
+- getIsolationLevel()：获取隔离级别
+- getPropagationBehavior()：传播行为
+- getTimeout()：事务超时时间
+- isReadOnly()：是否只读
+
+**事务状态类**：TransactionStatus
+
+声明式事务配置步骤：
+
+1. 配置事务管理器
+
+   ```xml
+   <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+   	<property name="dataSource" ref="dataSource"></property>
+   </bean>
+   ```
+
+2. 配置事务的通知：需要导入tx的事务约束。（xmlns:tx）
+
+   - id：给事务通知起名
+   - transaction-manager：给事务通知提供一个事务管理器
+
+   ```xml
+   <tx:advice id="txAdvice" transaction-manager="transactionManager">
+   <!-- 配置事务的属性 
+   	isolation：事务隔离界别，默认default，使用数据库的默认隔离级别。
+   	propagation：用于指定事物的传播行为，默认为Required，表示一定有事务。只有查询方法可选Supports。
+   	read-only：只读。
+   	timeout：设置超时事件，-1默认，表示永不超时
+   	no-rollback-for：用于指定一个异常，产生该异常回滚，产生其他异常不回滚。无默认值，表示任何都回滚。
+   	rollback-for：用于指定一个不回滚的异常，无默认值，表示任何都回滚。
+   -->
+       <tx:attributes>
+           <!--find*表示匹配所有find开头的方法 -->
+       	<tx:method name="find*" propagation="REQUIRED" read-only="false"/>
+       </tx:attributes>
+   </tx:advice>
+   ```
+
+3. 配置AOP中的切入点
+
+   ```xml
+   <aop:config>
+       <!-- 配置切入点 -->
+   	<aop:pointcut id="pt1" expression="xxx"></aop:pointcut>
+       <!-- 建立切入点和事务管理器的关系 -->
+       <aop:advisor advice-ref="txAdvice" pointcut-ref="pt1"></aop:advisor>
+   </aop:config>
+   ```
+
+4. 建立切入点和事务管理器的关系
+
+5. 配置事务的属性：在事务的通知中`<tx:advice>`中
+
+**基于注解的事务配置**：使用xml配置或许更容易
+
+1. 配置事务管理器
+
+2. 开启spring对注解事务的支持
+
+   ```xml
+   <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
+   ```
+
+3. 在需要事务支持的地方使用@Transactional注解（就可以直接使用了，属性也在这个注解的位置配置，这个注解用在方法或者类上面）
+
