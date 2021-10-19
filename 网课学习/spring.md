@@ -304,7 +304,7 @@ public void aroundPrintlog(ProceedingJoinPoint pjp){
   //表示一个表达式为...叫做pt1的切点
   ```
 
-**注**：实践的时候遇到的问题：
+**注1**：实践的时候遇到的问题：
 
 ```java
 public class TestAop {
@@ -319,7 +319,7 @@ public class TestAop {
 
 上面的代码，IService是接口，ImplService是实现类，尽管在声明bean的时候，service01声明为了ImplService类，但这里不能强转为ImplService，只能转为IService接口。这是因为动态代理的时候，会根据接口生成一个新的类，这个类只能cast到接口，不能cast到具体的实现类。
 
-**注**：实践遇到的问题2：
+**注2**：实践遇到的问题2：
 
 使用注解配置的时候：
 
@@ -339,6 +339,18 @@ class Logger {
 需要注意的是，后面使用的切点配置，得使用`pt1()`，如果不带括号会报错。
 
 以及，在现在得spring版本中，@After执行的顺序已经正常了。
+
+**注3**：实践遇到的问题3：
+
+似乎AfterReturnning和After的顺序，和在Aspect中声明的顺序相关？
+
+![image-20211019221912095](spring.assets/image-20211019221912095.png)
+
+这是正常情况↑：
+
+![image-20211019222016120](spring.assets/image-20211019222016120.png)
+
+令人迷惑。
 
 ### spring中的jdbcTemplate
 
