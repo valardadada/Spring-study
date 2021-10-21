@@ -79,6 +79,80 @@ SpringMVC是基于java实现的MVC设计模型的请求驱动类型的轻量级W
 2. 在spring的配置文件中配置自定义的转换器，<bean id="convert" class="org.springframework.context.support.ConversionServiceFactoryBean">。需要注入converters属性，把自己写的自定义转换器加入进去。
 3. 配置类型转换器生效。<mvc:annotation-driven conversion-service="conversionService"/>
 
+### 常用注解解释：
+
+@RequestParam：获取请求中的参数，映射过来，但好像没有解释多个参数的情况。
+
+```java
+@Controller
+@RequestMapping("/anno")
+public class AnnoController{
+    @RequestMapping("/testRequestParam")
+    public String testRequestParam(@RequestParam(name="name")String username){
+        //这里的参数使用的叫做name，但如果请求中的参数名字不同，就需要加@RequestParam注解，如上注解后，请求中必须带name参数，否则会400.
+        System.out.pringln("executing")；
+            return "success";
+    }
+}
+```
+
+@RequestBody：获得请求体内容，得到key=value&key=value...结构的数据。get请求不适用（没有请求体，得写表单才可以）（get请求得参数在地址栏中）。
+
+```java
+@RequestMapping("/testRequestBody")
+public String testRequestBody(@RequestBody String body){
+    System.out.println("executing");
+    System.out.println(body);
+    return "success";
+}
+```
+
+@PathVaribale：用于绑定url中得占位符。例如：请求url中得/delete/{id}，这个{id}就是url占位符，这是springMVC支持rest风格URL得一个重要标志。
+
+```java
+@RequestMapping("/testPathVariable/{sid}")
+public String testPathVariable(@PathVariable(name="sid")String id){
+    //请求：anno/testPathVariable/10 -> 获得10
+    System.out.println("executing");
+    System.out.println(id);
+    return "success";
+}
+```
+
+@RequestHeader：用于获取消息头
+
+```java
+@RequestMapping("/testRequestHeader")
+public String testPathVariable(@RequestHeader(value="Accept")String header){
+    //请求：anno/testPathVariable/10 -> 获得10
+    System.out.println("executing");
+    System.out.println(header);
+    return "success";
+}
+```
+
+@CookieValue：用于获取指定cookie的名称的值
+
+```java
+@RequestMapping("/testCookie")
+public String testPathVariable(@CookieValue(value="JSESSIONID")String cookie)
+    //获取cookie中的JSESSIONID域
+```
+
+@ModelAttribute：修饰方法和参数。放在方法上，表示当前方法会在控制器的方法执行之前，先执行。可以修饰没有返回值的方法，也可以修饰有具体返回值的方法。////用在参数上，获取指定的数据给参数赋值。
+
+```java
+@RequestMapping("/testModelAttribute")
+public String testPathVariable()
+    
+@ModelAttribute
+public void showUser(){}
+//showUser方法会在上面一个方法之前执行
+//可以通过@ModelAttribute注解的方法来对传过来的参数进行预处理
+```
+
+@SessionAttribute：用于多次执行控制器方法间的参数共享。
+
 
 
 
