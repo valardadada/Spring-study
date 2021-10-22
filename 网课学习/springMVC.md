@@ -29,7 +29,7 @@ SpringMVC是基于java实现的MVC设计模型的请求驱动类型的轻量级W
    - internalResourceResolver注册成为容器中的对象
 2. 发送请求，后台处理请求
 
-![image-20211020133855363](C:\myGit\project\spring\网课学习\springMVC.assets\image-20211020133855363.png)
+![image-20211020133855363](G:\myGit\project\spring\网课学习\springMVC.assets\image-20211020133855363.png)
 
 **注解**：
 
@@ -152,6 +152,41 @@ public void showUser(){}
 ```
 
 @SessionAttribute：用于多次执行控制器方法间的参数共享。
+
+### Response响应
+
+返回字符串的方式进行响应：
+
+```java
+@Controller
+@RequestMapping("/user")
+public class UserController{
+    
+    @RequestMapping("/testString")
+    public String testString(Model model){
+        System.out.println("testString excute");
+        model.addAttribute("user",new User());//可以在jsp中通过${user}来访问这个对象
+        return "success";//根据试图解析器跳转到叫做success.xxx的页面去
+    }
+}
+```
+
+无返回值的方式：
+
+```java
+    @RequestMapping("/testVoid")
+    public String testVoid(){
+        System.out.println("testString excute");
+    }//这种情况会自动访问对应文件夹下的testVoid.jsp
+	@RequestMapping("/testVoid")
+    public String testVoid(HttpServletRequest request, HttpServletResponese response) throws ServletException, IOExcepteion{
+        System.out.println("testString excute");
+        request.getRequestDispatcher("/WEB-INF/pages/success.jsp").forward(request,response);
+        //手动转发的时候不会调用视图解析器，所以需要写完整路径。
+    }
+```
+
+
 
 
 
