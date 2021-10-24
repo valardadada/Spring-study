@@ -170,6 +170,12 @@ public ModelAndView say(){
     mv.setViewName("say");
     return mv;
 }
+
+@RequestMappint(value="/index")
+public String index(MOdel model){
+    model.addAttribute("message","hello");
+    return "say";//和上面效果一样
+}
 ```
 
 需要在webapp中创建一个say.jsp.
