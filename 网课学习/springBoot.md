@@ -174,6 +174,29 @@ public ModelAndView say(){
 
 需要在webapp中创建一个say.jsp.
 
+## 集成Mybatis
+
+依赖：
+
+- 添加mybatis依赖
+- 添加mysql驱动
+
+```xml
+<dependency>
+	<groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+</dependency>
+<dependency>
+	<groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.0.0</version>
+</dependency>
+```
+
+**Mybatis逆向工程**：
+
+使用Mybatis提供的逆向工程生成实体bean，映射文件，Dao接口
+
 
 
 
