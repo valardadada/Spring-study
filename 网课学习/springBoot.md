@@ -210,3 +210,50 @@ public String index(MOdel model){
 - <sqlMapGenerator>：生成mybatis的Mapper.xml文件，targetPackage指定mapper.xml文件的包名，targetProject同理。
 - <javaClientGenerator>：生成mybatis的Mapper接口类文件，targetPackage和targetProject同理。
 - <table>：数据库表名tableName，以及对应的java模型类名domainObjectName。（如student表，封装成Student类）
+
+mybatis逆向工程只生成单表查询。
+
+mybatis逆向生成的时候，单词之间用下划线隔开，则生成对象的属性会自动驼峰命名。如：字段名user_name->属性名userName。需要在对用的Mapper类上写@Mapper注解。
+
+不在resource目录下的xml配置文件，需要在pom.xml中指定
+
+```xml
+<!-- pom.xml -->
+<build>
+	<resources>
+    	<resource>
+            <!-- xml配置文件所在位置 -->
+        	<directory>xxx</directory>
+            <includes>
+            	<include>**/*.xml</include>
+            </includes>
+        </resource>
+    </resources>
+</build>
+```
+
+**注**：如果不使用@Mapper注解，可以再Application.java（入口类）的上面添加@MapperScan()注解，来扫描某个包下所有的类作为Mapper。
+
+**注**：如果不在pom.xml中指定资源文件的位置，可以把需要的配置文件放到resource下，然后再springboot核心配置文件application.properties中指定
+
+```properties
+mybatis.mapper-location=classpath:mapper/*.xml
+#classpath:mapper/*.xml在项目中的实际位置是：/resource/mapper/mapper.xml
+```
+
+maven中规定resource就是classpath，所以可以这么些。然后java文件夹下只会编译其中的.java文件，其它文件不会编译，同时，会编译resource中的内容。所以如果不特别指定，maven不会编译放在java文件夹下的xml文件。
+
+**注解解释**：
+
+- @Mapper：在每一个Mapper接口类上添加，作用是扫描dao接口
+- @MapperScan：在SpringBoot入口类上添加，扫描指定的包
+
+**关于Mapper映射文件存放位置的写法**：
+
+- 将Mapper接口和Mapper映射文件放到src/main/java文件夹下，还需再pom.xml中手动指定资源文件夹位置
+- 将Mapper接口和Mapper映射文件分开存放，接口类放到java文件夹下，映射文件放到resource类路径下，同时需要在application.properties文件中指定mapper映射文件的位置。
+
+**事务**：
+
+只需要在使用了Mapper中的方法的方法上，使用@Transactional注解就可以开启事务。
+
