@@ -180,9 +180,33 @@ public String index(MOdel model){
 
 需要在webapp中创建一个say.jsp.
 
+## 集成Mybatis
 
+依赖：
 
+- 添加mybatis依赖
+- 添加mysql驱动
 
+```xml
+<dependency>
+	<groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+</dependency>
+<dependency>
+	<groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.0.0</version>
+</dependency>
+```
 
+**Mybatis逆向工程**：
 
+使用Mybatis提供的逆向工程生成实体bean，映射文件，Dao接口
 
+需要使用一个GeneratorMapper.xml的配置文件：需要配置的一些标签：
+
+- <jdbcConnection>：连接数据库的配置，URL，驱动，用户名和密码
+- <javaModelGenerator>：生成model类，targetPackage指定生成的model类的包名，targetProject指定生成的model放在哪个工程下。
+- <sqlMapGenerator>：生成mybatis的Mapper.xml文件，targetPackage指定mapper.xml文件的包名，targetProject同理。
+- <javaClientGenerator>：生成mybatis的Mapper接口类文件，targetPackage和targetProject同理。
+- <table>：数据库表名tableName，以及对应的java模型类名domainObjectName。（如student表，封装成Student类）
