@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<!--安装了dtd之后，就会有自动补全提示了-->
+<!--老提示不是一个generator configuration配置文件的时候，可以去官网找一下头部重新粘贴一下就好-->
+<generatorConfiguration>
+    <!-- jdbc驱动包的位置 -->
+    <classPathEntry location="C:\Users\Administrator\.m2\repository\mysql\mysql-connector-java\8.0.27\mysql-connector-java-8.0.27.jar"/>
+    <context id="tables" targetRuntime="MyBatis3Simple">
+        <!--抑制生成注释，生成的注释都是英文的-->
+        <commentGenerator>
+            <property name="suppressAllComments" value="true"/>
+        </commentGenerator>
+        <!--配置数据库链接信息-->
+        <jdbcConnection
+                driverClass="com.mysql.cj.jdbc.Driver"
+                connectionURL="jdbc:mysql://localhost:3306/emp"
+                userId="root"
+                password="123456"/>
+        <!--生成model类，targetPackage指定model的包名，targetProject指定生成的model放在哪个工程下-->
+        <javaModelGenerator targetPackage="com.example.springboottest.domain" targetProject="src/main/java">
+            <property name="enableSubPackages" value="false"/>
+            <property name="trimStrings" value="false"/>
+        </javaModelGenerator>
+        <!--生成mybatis的mapper.xml文件-->
+        <sqlMapGenerator targetPackage="com.example.springboottest.mapper" targetProject="src/main.java">
+            <property name="enableSubPackages" value="false"/>
+        </sqlMapGenerator>
+        <!--生成Mybatis的Mapper接口类文件，其中的type，一般用两种类型，ANNOTATEDMAPPER，和XMLMAPPER，一种使用注解，一种使用xml配置文件
+        但有个问题是，使用XMLMAPPER的时候不知道为什么它不生成对应的xml文件？？-->
+        <!--这里三个Generator的顺序也是固定的= =-->
+        <javaClientGenerator type="ANNOTATEDMAPPER" targetPackage="com.example.springboottest.mapper" targetProject="src/main/java">
+            <property name="enableSubPackages" value="false"/>
+        </javaClientGenerator>
+        <table tableName="emp" domainObjectName="Emp"
+                enableCountByExample="false"
+                enableDeleteByExample="false"
+                enableSelectByExample="false"
+                enableUpdateByExample="false"
+                selectByExampleQueryId="false"/>
+    </context>
+</generatorConfiguration>

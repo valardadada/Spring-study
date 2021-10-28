@@ -193,13 +193,20 @@ public String index(MOdel model){
     <artifactId>mysql-connector-java</artifactId>
 </dependency>
 <dependency>
-	<groupId>org.mybatis.spring.boot</groupId>
+	<groupId>org.mybatis.spring.	boot</groupId>
     <artifactId>mybatis-spring-boot-starter</artifactId>
     <version>2.0.0</version>
 </dependency>
 ```
 
 **Mybatis逆向工程**：
+
+步骤：
+
+1. 添加mybatis，mysql依赖
+2. 添加org.mybatis.generator插件
+3. 写一个生成Mapper的配置文件：GeneratorMapper.xml
+4. 使用这个插件直接生成。
 
 使用Mybatis提供的逆向工程生成实体bean，映射文件，Dao接口
 
