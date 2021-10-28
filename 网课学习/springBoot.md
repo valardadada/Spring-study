@@ -41,6 +41,8 @@ public class Application{
 
 ## application.properties配置
 
+**注**：配置主配置文件的时候，总是很容易忘记一件事情，那就是在主配置文件中配置datasource，即spring.datasource.下的四个基本属性，驱动，url，用户名和密码。
+
 ```properties
 #设置内嵌Tomcat端口号
 server.port=8081
@@ -208,6 +210,8 @@ public String index(MOdel model){
 3. 写一个生成Mapper的配置文件：GeneratorMapper.xml
 4. 使用这个插件直接生成。
 
+
+
 使用Mybatis提供的逆向工程生成实体bean，映射文件，Dao接口
 
 需要使用一个GeneratorMapper.xml的配置文件：需要配置的一些标签：
@@ -217,6 +221,8 @@ public String index(MOdel model){
 - <sqlMapGenerator>：生成mybatis的Mapper.xml文件，targetPackage指定mapper.xml文件的包名，targetProject同理。
 - <javaClientGenerator>：生成mybatis的Mapper接口类文件，targetPackage和targetProject同理。
 - <table>：数据库表名tableName，以及对应的java模型类名domainObjectName。（如student表，封装成Student类）
+
+
 
 mybatis逆向工程只生成单表查询。
 
@@ -241,7 +247,7 @@ mybatis逆向生成的时候，单词之间用下划线隔开，则生成对象�
 
 **注**：如果不使用@Mapper注解，可以再Application.java（入口类）的上面添加@MapperScan()注解，来扫描某个包下所有的类作为Mapper。
 
-**注**：如果不在pom.xml中指定资源文件的位置，可以把需要的配置文件放到resource下，然后再springboot核心配置文件application.properties中指定
+**注**：如果不在pom.xml中指定资源文件的位置，可以把需要的配置文件放到resource（需要和mapper文件夹的位置对应，例如，mapper接口在：src/main/java/com/example/springboottest/mapper下，那么对应的.xml文件应该在resource/com/example/springboottest/mapper下，这样就不需要在主配置文件中指定）。然后再springboot核心配置文件application.properties中指定
 
 ```properties
 mybatis.mapper-location=classpath:mapper/*.xml
