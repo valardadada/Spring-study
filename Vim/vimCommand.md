@@ -16,6 +16,7 @@
 `gg`：跳到文首
 `J`：将下一个行直接加到这一行，实际操作似乎是删除掉这一行末尾的换行符
 `/string`：可以查找某个字符串，然后按`n`可以跳转到下一个，`N`可以往前查找。
+**配置相关**：我在linux上面配置了老久，但是由于linux上面的翻墙软件不太会用，代理老出问题，所以采取本地安装的方式。我不知道怎么莫名奇妙的安装好了vundle，然后就可以在vundle下面安装，方法是原本的配置文件需要: Plugin 'preservim/nerdtree'，这样他默认会通过git clone命令来获取这个插件，但是看:h vundle里面的内容，可以看到可以使用Plugin 'preservim/nerdtree', {'pinned':1}从本地.vim/bundle下安装插件。
 ## Plugins
 ### Vundle
 这其实是插件管理器，但是用起来有点毛病。可以的一种方式是，从github下载插件，然后使用：
