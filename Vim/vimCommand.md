@@ -30,6 +30,7 @@
 `ctrl+w+w`：可以快速在NERDTree和文档浏览之间切换
 `:NERDTreeToggle`：可以打开/关闭文件树的浏览
 `gt`：可以在多个tab之间切换，`gT`是相反的方向
+`NERDTree g:`：可以打开g盘
 ## tips
 在linux下，按错`ctrl+s`保存，但实际上锁了terminal之后，可以按`ctrl+q`来回显
 同样还有，按了`ctrl+c/z`，我忘记是哪一个了，暂停当前的线程之后，可以输入`fg`来恢复
