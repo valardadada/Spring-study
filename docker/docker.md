@@ -74,4 +74,54 @@ docker attach id ->进入正在运行的终端
 docker cp id:容器内路径 目的主机路径 ->将内容从容器拷贝到本地
 docker stats ->查看docker内存占用情况
 ```
-狂神p16
+## 可视化
+portainer：图形化界面管理工具，提供后台面板供用户操作
+```
+docker run -d -p 8080:9000 --restart=always -v /var/run/docker.sock:/var/run/docker.sock --privileged=true portainer/portainer
+```
+Rancher(CI/CD再用)
+## Docker镜像原理
+镜像是一种轻量级，可执行的独立软件包，用来打包软件运行环境和基本运行环境开发的软件，它包含运行某个软件所需的所有内容，包括代码，运行时，库，环境变量和配置文件。
+得到镜像的方式：
+1.远程仓库
+2.自己制作
+### Docker镜像加载原理
+> UnionFS(联合文件系统)
+联合文件系统（UnionFS）：联合我呢见系统是一种分层，轻量级且高性能的文件系统，它支持对我呢见系统的每一次修改的当作一次提交来层层叠加，同时可以将不同目录**挂载**到同一个虚拟文件系统下（unite several directories into a single virtual file system）。
+> 镜像加载原理
+docker镜像实际上是由一层一层的文件系统组成，这种层级的文件系统UnionFS。
+bootfs（boot file system）主要包含bootloader和kernel，bootloader主要是引导加载内核。
+bootfs在docker镜像的最底层，这一层与典型的linux系统一样。
+rootfs（root file system）在bootfs之上，包含的就是典型的linux系统中的/dev,/proc,/bin,/etc等标准目录和文件。rootfs就是各种不同操作系统的发行版，如ubuntu，centos等。
+### 分层理解
+建议直接看视频p19或者百度。
+分层的好处是，相同的层可以复用。
+docker镜像都是只读的，当容器启动的时候，一个新的可写层被加载到镜像的顶部，这一层就是通常说的容器层，容器之下的叫做镜像层。
+### commit镜像
+```
+docker commit ->提交容器成为一个新的副本
+docker commit -m="提交的描述信息" -a="作者" 容器id 目标镜像名:[TAG]
+类似于虚拟机的快照。
+```
+## 容器数据卷
+### 什么是容器数据卷
+应用和环境打包成镜像 ->但并不希望数据也丢失，需求：数据可以持久化。
+所以期望数据可以共享。
+卷技术-> docker容器中产生的数据，同步到本地
+卷技术：目录的挂载，将容器内的目录，挂载到linux上面。 
+总结：容器的持久化和同步操作。容器间也可以数据共享。
+### 使用数据卷
+> 使用命令 -v
+ docker run -it -v 主机目录地址：容器内目录这是**指定路径挂载**。
+**具名挂载和匿名挂载**：
+匿名挂载：
+不指明主机目录地址，会自动将容器内目录挂载到某个位置。
+具名挂在：
+就是指定卷名：docker run -v 卷名:容器内路径
+通过inspect 命令，或者docker volume inspect来查看卷相关的信息。
+会存入/var/lib/docker/volumes下。 
+**拓展**
+修改读写权限：ro ->readonly， rw ->readwrite
+docker -d -P --name nginx02 -v juming-nginx:/etc/nginx:ro nginx
+## Dockerfile
+p23
