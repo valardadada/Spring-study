@@ -31,4 +31,47 @@ docker比虚拟机快的原因：
 1.更少的抽象层次
 2.docker利用宿主机的内核，虚拟机需要安装新的guestOS。
 ## docker基本命令
-till-> 狂神docker 08
+```
+docker version ->版本信息
+docker info ->docker系统信息，包括镜像和容器数量
+docker cmd --help ->帮助信息
+```
+***镜像命令***
+```
+docker images ->查看有哪些镜像
+docker search xxx ->搜索镜像
+docker pull xxx ->下载镜像，分层下载（可以共用一部分），dockker image核心，联合文件系统？
+docker rmi -f containerId ->删除镜像
+```
+***容器命令***
+```
+//下载centos
+docker pull centos
+//新建容器并启动
+dockker run [args] image
+//参数说明：--name="Name" 容器名， -d 后台方式运行， -it 交互式运行， -p指定容器端口，-P 随机指定端口
+//-p的格式 
+// -p ip:host prot: container port 
+// -p host port : container port
+// -p container port 
+docker ps ->查看在运行的容器
+docker ps -a ->查看所有运行过的容器
+ctrl+p+q ->退出但不停止容器
+docker rm id ->删除指定容器
+docker start id ->启动容器
+docker restart id ->重启容器
+docker stop id ->停止容器
+docker kill id ->杀掉容器
+```
+***常用其他命令***
+```
+docker run -d xxx ->后台启动的时候，就必须要有一个前台进程，否则会直接关掉
+docker logs ->查看日志
+docker top id ->查看进程
+docker inspect id ->查看容器元数据
+docker exec -it id bashShell ->进入后台容器， 会启动一个新的终端
+docker attach id ->进入正在运行的终端
+docker cp id:容器内路径 目的主机路径 ->将内容从容器拷贝到本地
+docker stats ->查看docker内存占用情况
+```
+狂神p16
