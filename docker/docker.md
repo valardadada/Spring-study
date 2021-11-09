@@ -124,4 +124,59 @@ docker commit -m="提交的描述信息" -a="作者" 容器id 目标镜像名:[T
 修改读写权限：ro ->readonly， rw ->readwrite
 docker -d -P --name nginx02 -v juming-nginx:/etc/nginx:ro nginx
 ## Dockerfile
-p23
+构建步骤：
+1.编写dockerfile文件
+2.docker build构建成为镜像
+3.docker run运行镜像
+4.docker push发布镜像（docker hub或者阿里云等）
+
+Dockerfile就是用来构建docker镜像的构建文件，是一个命令脚本，运行就可以生成对应的镜像。
+```
+FROM centos
+
+VOLUME ["volume01","volume02"]
+
+CMD echo "------end------"
+CMD /bin/bash
+```
+使用docker build -f dockerfileName -t centos:tag 就可以使用这个dockerfile来构建一个镜像。
+（类似于makefile）
+**数据卷容器**
+两个容器之间内容同步/挂载
+使用--volumes-from： docker run -it --name docker02 --volumes-from docker01 centos
+上面这段命令就是两个容器之间数据同步，上面的例子中docker01是父容器，也叫数据卷容器。可以多个容器互相挂载。
+### Dockerfile介绍
+基础内容：
+1.关键字（指令）必须是大写
+2.从上到下顺序执行
+3.#表示注释
+4.每个指令会创建一个新的镜像层，并提交！
+Dockerfile -> 构建docker镜像
+dockerimages -> docker镜像
+docker容器：运行镜像产生
+命令：
+``` dockerfile
+FROM          #基础镜像，从这里开始构建
+MAINTAINER    #维护人员信息
+RUN           #镜像构建时需要运行的命令
+ADD           #添加内容
+WORKDIR       #镜像的工作目录
+VOLUME        #设置容器卷，挂载的目录
+EXPOSE        #暴露端口
+CMD           #制定容器启动的时候需要运行的命令，只有最后一个生效，可被替代
+ENTRYPOINT    #同上，但可以追加命令
+ONBUILD       #构建一个被继承的Dockerfile的时候就会触发这个指令
+COPY          #类似ADD，将文件拷贝到镜像
+ENV           #构建的时候设置环境变量
+```
+## Docker网络
+### 理解Docker网络
+docker如何处理网络访问的？
+容器内使用ip addr查看ip地址。可以在宿主机上ping通容器。
+**原理**
+1.每启动一个docker容器，docker会给容器分配一个ip，只要安装了docker，就会有一个网卡docker0
+桥接模式，使用技术是**evth-pair**技术。
+使用ip addr测试的时候，会发现虚拟网卡数量会增加。
+evth-pair就是一对的虚拟设备接口，成对出现，一段连着协议，一段彼此连接
+evth-pair充当桥梁，连接各种虚拟网络设备。
+
