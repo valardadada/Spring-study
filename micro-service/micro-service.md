@@ -370,3 +370,70 @@ spring:
 
 ![image-20211114160500698](C:\myGit\project\spring\micro-service\micro-service.assets\image-20211114160500698.png)
 
+**路由断言工厂**：
+
+配置中的断言规则由断言工程读取并处理，转变为对应的路由判断条件。一共提供了11个基本的断言工厂。
+
+**路由过滤器GatewayFilter**：
+
+这是网关提供的过滤去，可以对进入网关的请求和微服务返回的相应做处理。
+
+![image-20211115002449348](micro-service.assets/image-20211115002449348.png)
+
+一共有三十多种过滤工厂。
+
+默认过滤器，会对所有的路由请求都生效。
+
+**全局过滤器**：
+
+全局过滤器的作用也是处理一切进入网关请求和微服务响应，与GatewayFilter作用一样。
+
+但GatewayFilter通过配置定义，处理逻辑是固定的，而GlobalFilter的逻辑需要自己写代码实现。 
+
+定义方式是实现GlobalFilter接口：
+
+```java
+public interface GlobalFilter {
+    //exchange请求上下文，可以获取请求和响应等信息
+    //chain用来把请求委托给下一个过滤器
+    Mono<void> filter(ServerWebExchange exchange, GatewayFilterChain chain);
+}
+```
+
+例如：
+
+```java
+@Order(-1)
+@Component
+public class AuthorizeFilter implements GlobalFilter {
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain){
+        MultiValueMap<String, String> params = exchange.getRequest().getQueryParams();
+        String auth = params.getFirst("authorization");
+        if("admin".equals(auth)){
+            return chain.filter(exchange);
+        }
+        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+        return exchange.getResponse().setComplete();
+    }
+}
+```
+
+过滤器优先级不同时，数值小的会优先。
+
+当过滤器优先级相同的时候，会按defaultFilter > 路由过滤去 > GlobalFilter的顺序执行。
+
+**跨域问题**：
+
+跨域：域名不一致就是跨域
+
+如：
+
+域名不同：`www.taobao.com`，`www.taobao.org`。
+
+域名相同，端口不同：localhost:8080，localhost:8081。
+
+跨域问题：**浏览器**禁止请求的发起者与服务端发生跨域ajax请求，请求被浏览器拦截的问题。
+
+解决：CORS？？？这是啥
+
