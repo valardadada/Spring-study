@@ -597,3 +597,91 @@ service:
      - 8090: 8090
 ```
 
+# 异步通信技术
+
+## MQ
+
+同步通信和异步通信。
+
+基于Feign的调用就属于同步方式：
+
+代码耦合度高，性能下降，吞吐下降，资源利用率低，级联失败。
+
+异步调用 -> 事件驱动模式，其模式如图：
+
+![image-20211116000444953](micro-service.assets/image-20211116000444953.png) 
+
+异步通信优缺点：
+
+优点：服务解耦；性能提升，吞吐量提高；服务没有强依赖，不担心级联失败的问题；流量削峰；
+
+缺点：broker的可靠性，安全性，吞吐能力要求高；架构复杂，没有明显流程线，不好追踪管理
+
+用于高并发，即时性要求低
+
+**什么是MQ**：
+
+MQ（MessageQueue）：消息队列，存放消息的队列。也就是事件驱动架构中的Broker
+
+主要有四种：
+
+|            | RabbitMQ                | ActiveMQ                          | RocketMQ   | Kafka      |
+| ---------- | ----------------------- | --------------------------------- | ---------- | ---------- |
+| 公司/社区  | Rabbit                  | Apache                            | 阿里       | Apache     |
+| 开发语言   | Erlang                  | Java                              | Java       | Scala&Java |
+| 协议支持   | AMQP，XMPP，SMTP，STOMP | OpenWire，STOMP，REST，XMPP，AMQP | 自定义协议 | 自定义协议 |
+| 可用性     | 高                      | 一般                              | 高         | 高         |
+| 单机吞吐量 | 一般                    | 差                                | 高         | 非常高     |
+| 消息延迟   | 微妙级                  | 毫秒级                            | 毫秒级     | 毫秒以内   |
+| 消息可靠性 | 高                      | 一般                              | 高         | 一般       |
+
+## RabbitMQ
+
+RabbitMQ是基于Erlang语言开发的开源**消息通信中间件**。
+
+使用Docker 运行MQ容器：
+
+```sh
+docker run \
+-e RABBITMQ_DEFAULT_USER=itcast \
+-e RABBITMQ_DEFAULT_PASS=123321 \
+--name mq \
+--hostname mq1 \
+-p 15672:15672 \
+-p 5672:5672 \
+-d \
+rabbitmq:3-management
+```
+
+rabbitMQ结构：
+
+![image-20211116002650612](micro-service.assets/image-20211116002650612.png)
+
+## SpringAMQP
+
+AMQP：Advanced Message Queuing Protocol，是用于在应用程序或之间传递业务消息的开放**标准**。该协议与语言和平台无关，更符合微服务中独立新的要求。
+
+Spring AMQP：是基于AMQP协议定义的一套API规范，提供了模板来发送和接受消息。包含两部分，spring-amqp是基础抽象，spring-rabbit是底层的默认实现。
+
+**实现基础队列功能**：
+
+1.父工程引入spring-amqp依赖
+
+```xml
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-amqp</artifactid>
+</dependency>
+```
+
+2.在publisher服务中利用RabbitTemplate发送消息到某个队列
+
+2.1 在publisher服务中编写application.yml，添加mq连接信息
+
+2.2 建造测试类来进行测试
+
+3.在consumer服务中编写消费逻辑，绑定对应队列来消费
+
+3.1 consumer服务中添加mq连接信息
+
+3.2 在这个服务中新建类，编写消费逻辑，使用@RabbitListener注解，来表示监听某个消息队列。
