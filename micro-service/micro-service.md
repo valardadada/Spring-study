@@ -471,3 +471,129 @@ docker images 查看镜像
 
 docker rmi 删除镜像
 
+**容器命令**：
+
+docker run 运行容器
+
+docker pause 容器暂停
+
+docker unpause 容器继续运行
+
+docker stop 容器停止
+
+docker start 容器开始
+
+docker ps 默认查看运行的容器以及状态，可以-a查看所有
+
+docker exec 进入容器内部执行命令
+
+docker logs 容器日志
+
+docker rm 删除指定容器
+
+例子：
+
+```shell
+docker run --name containerName -p 80:80 -d nginx
+```
+
+解析：
+
+docker run 创建并运行一个容器
+
+--name 容器指定名字
+
+-p 宿主机端口与容器端口映射，冒号左端是宿主机端口，右侧是容器端口
+
+-d 后台运行容器
+
+nginx 镜像的名称，正常是需要带tag，默认latest
+
+例子：
+
+```shell
+docker exec -it containerName bash
+```
+
+docker exec 进入容器内部，执行一个命令
+
+-it 给当前进入的容器创建一个标准输入、输出终端，允许与容器交互
+
+containerName 容器名
+
+bash 是需要执行的命令
+
+**数据卷命令**：
+
+数据卷：要给虚拟目录，指向宿主机文件系统中的某个目录。
+
+```shell
+docker volume [COMMAND]
+```
+
+docker volume是数据卷操作命令，命令后跟随的command来确定下一步的操作：
+
+create 创建一个volume
+
+inspect 显示一个或多个volume的信息
+
+ls 列出所有的volume
+
+prune 删除未使用的volume
+
+rm 删除一个或多个指定的volume
+
+挂载实例：
+
+创建容器的时候使用 -v 来挂载，如：-v html: /root/html，将容器的/root/html挂载到html数据卷
+
+没有提前创建这个数据卷的时候，docker也会自动创建一个数据卷。
+
+目录挂载：
+
+-v [宿主机目录]:[容器目录]
+
+-v [宿主机文件]:[容器文件]
+
+**自定义镜像**：
+
+Dockerfile
+
+| 指令       | 说明                                           | 示例                        |
+| ---------- | ---------------------------------------------- | --------------------------- |
+| FROM       | 指定基础镜像                                   | FROM centos:6               |
+| ENV        | 设置环境变量，可在后面指令使用                 | ENV key value               |
+| COPY       | 拷贝本地文件到镜像的指定目录                   | COPY ./mysql-5.7.rpm /tmp   |
+| RUN        | 执行linux的shell命令，一般是安装过程的命令     | RUN yum install gcc         |
+| EXPOSE     | 指定容器运行时监听的端口，是给镜像使用者查看的 | EXPOSE 8080                 |
+| ENTRYPOINT | 镜像中应用的启动命令，容器运行时调用           | ENTRYPOINT java -jar xx.jar |
+
+[参考官方网站](https://docs.docker.com/engine/reference/builder).
+
+docker build -t dockerImage:tag location
+
+**DockerCompose**：
+
+Docker Compose可以基于Compose文件帮助我们快速的部署分布式应用，而无需手动一个个创建和运行容器
+
+Compose文件是一个文本文件，通过指令定义集群中的每个容器如何运行。 
+
+例子：
+
+```yaml
+version: "3.8"
+
+service:
+  mysql:
+    image: mysql:5.7.25
+    environment:
+     MYSQL_ROOT_PASSWORD: 123
+    volumes:
+     - /tmp/mysql/data:/var/lib/mysql
+     - /tmp/mysql/conf/hmy.cnf:/etc/mysql/conf.d/hmy.cnf
+  web:
+    build: . #从当前目录进行构建
+    ports:
+     - 8090: 8090
+```
+
