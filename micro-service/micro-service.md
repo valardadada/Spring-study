@@ -437,3 +437,37 @@ public class AuthorizeFilter implements GlobalFilter {
 
 解决：CORS？？？这是啥
 
+## docker
+
+**镜像和容器**：
+
+镜像：Docker将应用程序及所需的依赖，函数库，环境，配置等文件打包，称为镜像 -> 只读
+
+容器：镜像中的应用程序运行后形成的进程就是容器，知识docker会给容器做隔离，对外不可见。
+
+**docker架构**：
+
+CS架构：
+
+服务端：Docker守护进程，负责处理Docker指令，管理镜像，容器
+
+客户端：通过命令或RestAPI向Docker服务端发送指令。可以在本地或远程向服务端发指令。
+
+**镜像命令**：
+
+镜像一般两部分组成：[repostory]:[tag] 如：mysql:5.7
+
+docker build 构建镜像
+
+docker pull 拉取镜像
+
+docker push 推送镜像
+
+docker save 保存镜像为压缩包
+
+docker load 加载压缩包为镜像
+
+docker images 查看镜像
+
+docker rmi 删除镜像
+
