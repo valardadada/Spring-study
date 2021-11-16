@@ -751,3 +751,76 @@ public void listenDirectQueue1(String msg){
 **TopicExchange**：
 
 可以用通配符来指定绑定的内容。
+
+**消息转换器**：
+
+发送的为Object类型，说明是可以发送任意类型的对象/数据。
+
+java会将对象序列化之后发送java-serialized-object。
+
+Spring对消息对象的处理是由org.springframework.amqp.support.converter.MessageConverter来处理的。而默认实现是**SimpleMessageConverter**，基于JDK的ObjectOutputStream完成序列化。
+
+如果需要**修改**只需要定义一个**MessageConverter**类型的Bean即可。推荐使用json方式序列化，步骤如下：
+
+1.在发布消息的服务中引入依赖：
+
+```xml
+<dependency>
+	<groupId>com.fasterxml.jackson.dataformat</groupId>
+    <artifactId>jackson-dataformat-xml</artifactId>
+</dependency>
+```
+
+2.在发布消息的服务中声明MessageConverter：
+
+```java
+@Bean
+public MessageConverter jsonMessageConverter(){
+    return new Jackson2JsonMessageConverter();
+}
+```
+
+3.消息消费者也需要引入jackson依赖
+
+```xml
+<dependency>
+	<groupId>com.fasterxml.jackson.dataformat</groupId>
+    <artifactId>jackson-dataformat-xml</artifactId>
+    <version>2.9.10</version>
+</dependency>
+```
+
+4.在消费者服务定义MessageConverter：和发布消息的服务一样
+
+5.从某个队列中消费消息，转换为对应的数据结构即可
+
+## Elasticsearch
+
+elasticsearch -> 功能非常强打的开源搜索引擎，可以帮助我们从海量的数据中快速找到需要的内容。
+
+组件：kibana，Logstash，Beats也就是elastic stack（ELK）。被广泛应用在日志数据分析，实时监控等领域。
+
+![image-20211116235554476](micro-service.assets/image-20211116235554476.png)
+
+elasticsearch是基于lucene，这是一个java语言的搜索引擎类库，是apache公司的顶级项目，与1999年开发。
+
+优势：易扩展，高性能（基于倒排索引）
+
+缺点：只限于java，学习曲线陡峭，不支持水平扩展
+
+elasticsearch优势：支持分布式，可水平扩展，提供Restful接口，可被任何语言调用。
+
+**正向索引和倒排索引**：
+
+![image-20211117001922975](micro-service.assets/image-20211117001922975.png)
+
+文档：每条数据是一个文档 -> es中会序列化成json格式
+
+词条：文档按照语义分成的词语 -> 词条唯一
+
+索引：相同类型的文档的集合
+
+映射：索引中文档的字段约束信息，类似表的结构约束
+
+倒排 -> 根据词条来找文档。
+
