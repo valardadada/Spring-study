@@ -888,3 +888,135 @@ POST /索引库名/_update/文档id   -> 局部更新，更新一个字段
 
 }
 
+### RestClinet
+
+es官方提供了各种不同语言的客户端，来操作ES。这些客户端本质上是组装DSL语句，通过http请求发送给ES。
+
+当想使用多个字段进行搜索的时候，可以在创建索引库的时候使用copy_to将一个字段添加到另外一个字段。
+
+```dsl
+"all": {
+	"type": "text",
+	"analyzer": "ik_max_word"
+},
+"brand": {
+	"type": "keyword",
+	"copy_to": "all"
+}
+```
+
+如上，就可以在搜索的时候，用到所有copy_to指向all的字段。
+
+**初始化JavaRestClient**：
+
+1.引入es的RestHighLevelClient依赖：
+
+```xml
+<dependency>
+	<groupId>org.elasticsearch.client</groupId>
+    <artifactId>elasticsearch-rest-high-level-client</artifactId>
+</dependency>
+```
+
+2.因为springboot默认es版本7.6.2，所以需要覆盖默认的ES版本：
+
+```xml
+<properties>
+	<java.version>1.8</java.version>
+    <elasticsearch.version>7.12.1</elasticsearch.version>
+</properties>
+```
+
+3.初始化RestHighLevelClient：
+
+```java
+RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(
+	HttpHost.create("http://192.168.150.101:9200")
+));
+```
+
+**创建索引库**：
+
+```java
+void testCreateHotelIndex() throws IOException {
+    //1.创建Request对象
+    CreateIndexRequest request = new CreateIndexRequest("hotel");
+    //2.请求参数，MAPPING_TEMPLATE是静态常量字符串，内容是创建索引库的DSL语句
+    request.source(MAPPING_TEMPLATE, XContentType.JSON);
+    //3.发起请求
+    client.indices().create(request, RequestOptions.DEFAULT);
+}
+```
+
+**删除索引库，判断索引库是否存在**：
+
+client.indices().delete(xxx,xxx);   -> 删除
+
+client.indices().exists(xxx,xxx);    -> 判断是否存在
+
+总结就是，客户端所有的操作都可以使用client.indices().action()来进行。
+
+**RestClient操作文档**：
+
+添加数据到索引库：
+
+```java
+void testIndexDocument() throws IOException {
+    //1.创建request对象, indexName -> 索引库名， id -> 文档id
+    IndexRequest request = new IndexRequest("indexName").id("1");
+    //2.准备JSON文档
+    request.source("{\"name\": \"Jack\",\"age\":21}", XContentType.JSON);
+    //3.发送请求
+    client.index(request, RequestOptions.DEFAULT);
+}
+```
+
+**查询文档**：
+
+```java
+vodi testGetDocumentById throws IOException {
+    //1.创建request对象
+    GetRequest request = new GetRequest("indexName", "1");
+    //2.发送请求，得到结果
+    GetResponse respones = client.get(request, RequestOptions.DEFAULT);
+    //3.解析结果
+    String json = response.getSourceAsString();
+    
+    System.out.println(json);
+}
+```
+
+**更新**：
+
+类似上面得，使用UpdateRequest， 然后client.update()。
+
+**删除**：
+
+同理，DeleteRequest， 然后client.delete()。
+
+**文档得CRUD**：
+
+就是client.action()
+
+**批量导入数据到ES**：
+
+```java
+void testBulk() throws IOException {
+    //1.创建Bulk请求
+    BulkRequest request = new BulkRequest();
+    //2.添加要批量提交的请求
+    request.add(new IndexRequest("hotel").id("101").source("json source", XContentType.JSON));
+    request.add(new IndexRequest("hotel").id("102").source("json source2", XContentType.JSON));
+    //3.发起bulk请求
+    client.bulk(request, RequestOptions.DEFAULT);
+}
+```
+
+## 分布式搜索引擎
+
+我大概想跳过这部分，属实不是很感兴趣。
+
+对应原来视频的P101-P118
+
+
+
