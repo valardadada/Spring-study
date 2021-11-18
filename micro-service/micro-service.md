@@ -1248,5 +1248,117 @@ request.source().from(0).size(5);#分页
 request.source().sort("price",SortOrder.ASC);#排序
 ```
 
+高亮
 
+```java
+request.source().highlighter(new HighlightBuilder().field("name").requireFieldMatch(false));//name是字段名
+```
+
+高亮结果解析：
+
+```java
+//获取高亮内容：
+Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+HighlightField highlightField = highlightFields.get("name");
+if(highlightField != null){
+    String name = highlightField.getFragments()[0].string();
+    hotelDoc.setName(name);
+}
+```
+
+### 数据聚合
+
+聚合：可以实现对文档数据的统计、分析、运算。聚合常见有三类：
+
+参与聚合的字段类型一定不是需要分词处理的字段
+
+桶聚合（Bucket）：用来对文档做分组  -> 对数据做分组
+
+​			TermAggregation：按文档字段值分组
+
+​			Data Histogram： 按日期阶梯分组，如，一周为一组
+
+度量聚合（Metric）：用以计算一些值，如：最大值，最小值，平均值等
+
+​			Avg：平均值
+
+​			Max：最大值
+
+​			Min：求最小值
+
+​			Stats：同时求max，min，avg，sum等
+
+管道聚合（pipeline）：其他聚合的结果为基础做聚合
+
+**DSL实现Bucket聚合**：
+
+如：对品牌名称做聚合
+
+```dsl
+GET /hotel/_search
+{
+	"size": 0, //结果不包含文档，只有聚合结果
+	"aggs": { //定义聚合
+		"brandAgg":{ //聚合的名称
+			"terms":{ //聚合的类型
+				"field": "brand", //参与聚合的字段
+				"size": 20 //希望获取的聚合结果数量
+				"order":{
+					"_count": "asc"
+				}
+			}
+		}
+	}
+}
+```
+
+默认对所有文档进行聚合，可以限定聚合的范围 -> 添加query即可。
+
+可以聚合嵌套，如在桶聚合的内部进行metric聚合 ->
+
+```dsl
+GET /hotel/_search
+{
+	"size": 0,
+	"aggs":{
+		"brandAgg":{
+			"terms":{}
+			"aggs":{// 进行metric聚合， 在桶聚合的内部
+				"scoreAgg":{"stats":xxx}
+			}
+		}
+	}
+}
+```
+
+### RestClient实现聚合
+
+```java
+request.source().size(0);
+request.source().aggregation(
+	AggregationBuilders
+    	.terms("brand_agg")
+    	.field("brand")
+    	.size(20)
+);
+```
+
+**结果解析**：
+
+```java
+//解析聚合结果
+Aggregations aggregations = response.getAggregations();
+//根据名称获得聚合结果
+Terms brandTerms = aggregations.get("brand_agg");
+//获取桶
+List<? extends Terms.Bucket> buckets = brandTerms.getBuckets();
+//遍历
+for(Terms.Bucket bucket : buckets){
+    //获取key，也就是品牌信息
+    String brandName = bucket.getKeyAsString();
+    System.out.println(brandName);
+}
+```
+
+### 自动补全
 
