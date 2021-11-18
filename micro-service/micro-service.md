@@ -597,9 +597,9 @@ service:
      - 8090: 8090
 ```
 
-# 异步通信技术
+## 异步通信技术
 
-## MQ
+### MQ
 
 同步通信和异步通信。
 
@@ -635,7 +635,7 @@ MQ（MessageQueue）：消息队列，存放消息的队列。也就是事件驱
 | 消息延迟   | 微妙级                  | 毫秒级                            | 毫秒级     | 毫秒以内   |
 | 消息可靠性 | 高                      | 一般                              | 高         | 一般       |
 
-## RabbitMQ
+### RabbitMQ
 
 RabbitMQ是基于Erlang语言开发的开源**消息通信中间件**。
 
@@ -657,7 +657,7 @@ rabbitMQ结构：
 
 ![image-20211116002650612](micro-service.assets/image-20211116002650612.png)
 
-## SpringAMQP
+### SpringAMQP
 
 AMQP：Advanced Message Queuing Protocol，是用于在应用程序或之间传递业务消息的开放**标准**。该协议与语言和平台无关，更符合微服务中独立新的要求。
 
@@ -1012,11 +1012,241 @@ void testBulk() throws IOException {
 }
 ```
 
-## 分布式搜索引擎
+### 分布式搜索引擎
 
-我大概想跳过这部分，属实不是很感兴趣。
+**DSL Query分类**：
 
-对应原来视频的P101-P118
+DSL（Domain Specific Language）：基于json风格的查询语言。常见查询类型包括：
+
+查询所有：查出所有数据，match_all
+
+全文检索查询：利用分词器对用户输入内容分词，然后去倒排索引库中匹配：例如：match_query，multi_match_query，match
+
+精确查询：根据精确词条值查找数据，一般是查找keyword，数值，日期，boolean类型的字段：ids，range，term
+
+地理查询：根据经纬度查询，geo_distance，geo_bounding_box
+
+复合查询：将上面的各种条件组合起来，合并查询条件，例如：bool，function_score
+
+查询的基本语法：
+
+```dsl
+GET /indexName/_search
+{
+	"query":{
+		"查询类型": {
+			"查询条件": "条件值"
+		}
+	}
+}
+```
+
+如：查询所有
+
+```dsl
+GET /hotel/_search
+{
+	"query"{
+		"match_all":{}
+	}
+}
+```
+
+**全文检索查询**：
+
+会对用户输入内容分词，常用于搜索框搜索。
+
+```dsl
+# match
+"match": {"FIELD": "TEXT"}
+#mult_match 不推荐，推荐将多个字段copy_to一个字段，利用哪一个字段进行match
+"multi_match": {"query": "TEXT", "fields": ["FIELD1","FIELD2"]}
+```
+
+**精确查询**：
+
+一般是keyword，数值，日期，boolean等类型字段。所以不会对搜索内容进行分词。
+
+term：根据词条精确值查询
+
+range：根据值得范围查询
+
+```dsl
+"term": {"FIELD":{"value":"VALUE"}}
+"range":{"FIELD":{"gte":100,"lte":300}}#gt >, gte >=, lt <, lte <=
+```
+
+**地理查询**：
+
+根据经纬度查询
+
+geo_bouding_box：擦汗寻geo_point值落在某个矩形范围得所有文档
+
+```
+"geo_bouding_box": {
+	"FIELD":{
+		"top_left":{
+			"lat":31.1,
+			"lon":121.5
+		},
+		"bottom_right":{
+			"lat":30.9,
+			"lon":121.7
+		}
+	}
+}
+```
+
+geo_distance：查询到中心点小于某个距离得所有文档
+
+```
+"geo_distance":{
+	"distance": "15km",
+	"FIELD":"31.21,121.5"
+}
+```
+
+**复合查询**：
+
+将简单查询组合起来，实现更复杂的搜索逻辑
+
+function_score：算分函数查询，可以控制文档相关性算法，控制文档排名。
+
+词条频率（TF）=词条出现次数/文档中词条总数
+
+（TF-IDF算法）逆文档频率（IDF）=Log（文档总数/包含词条的文档总数），score=所有词条频率求和（TF的和）*IDF
+
+（BM2.5算法）Score(Q,d)=求和log(1+(N-n+0.5)/(n+0.5))\*fi/(fi+k1*(1-b+b\*dl/avg(dl)))
+
+![image-20211118094744595](micro-service.assets/image-20211118094744595.png)
+
+function score query->修改文档得相关性算法，得到新的算分排序
+
+```
+"function_score":{
+	"query":{"match":{"all":"外滩"}},
+	"function":[
+		{
+			"filter":{"term":{"id":"1"}}, #过滤条件
+			"weight": 10 #算分函数，权重作为结果，还有field_value_factor，random_score，
+						 #script_score
+		}
+	],
+	"boost_mode":"multiply"#加权模式，两者相乘，还有replace，sum,avg,max,min
+}
+```
+
+**复合查询Boolean Query**：
+
+布尔查询是一个或多个查询子句的组合，组合方式：
+
+must：必须匹配的子查询 ->算分
+
+should：选择性匹配 ->算分
+
+must_not：必须不匹配 -> 不参与算分
+
+filter：必须匹配，不参与算分   -> 效率高，甚至会缓存
+
+```
+"bool":{
+	"must":[
+		{”term": {"city":"shanghai"}},...#可以有多个子查询
+	],
+	"should":[
+		{"term":{"brand": "NIKE"}}
+	],
+	...
+}
+```
+
+**搜索结果排序**：
+
+默认排序，根据相关度算分排序，可以自己指定字段内容来排序，keyword，数值，地理坐标，日期等。
+
+```
+"query":{xxx},
+"sort":[{"FIELD":"desc"}],
+[{"_geo_distance":{"FIELD":"纬度，经度","order":"asc","unit":"km"}}]
+```
+
+**搜索结果分页**：
+
+```
+"query":{xxx},
+"from": 0,#分页开始的位置
+"size": 20,#分页的大小
+"sort":[{"FIELD":"desc"}],
+```
+
+es的倒排索引会将范围内的所有数据排序，之后取分页的内容
+
+深度分页 -> 查询很深的数据
+
+search_after：从上一次的排序值开始，查询下一页的内容
+
+scroll：不推荐使用，排序数据形成快照，放到内存。
+
+**结果高亮**：
+
+突出显示搜索关键字
+
+服务端添加标签，页面中css样式高亮关键字
+
+```
+"query":{},
+"highlight":{
+	"fields":{
+		"FIELD":{
+			"pre_tags":"<em>",
+			"post_tags":"</em>",
+			"require_field_match":false #字段名可以不匹配
+		}
+	}
+}
+```
+
+默认情况，搜索字段与高亮字段一样才可以高亮
+
+### Restclient查询文档
+
+结果解析：
+
+![image-20211118102546021](micro-service.assets/image-20211118102546021.png)
+
+**查询语句的格式**：
+
+```java
+void testMatchAll() throws IOException {
+    //1.准备Request
+    SearchRequest request = new SearchRequest("hotel");
+    //2.准备DSL =====> 不同查询请求，有区别的地方
+    request.source().query(QueryBuilders.matchAllQuery());
+    //3.发送请求
+    SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+}
+```
+
+match查询：
+
+```java
+request.source().query(QueryBuilders.matchQuery("all","test"));
+```
+
+term查询：
+
+```java
+QueryBuilders.termQuery("xxx","xxx")
+```
+
+其他类似。
+
+**搜索结果处理**：
+
+```java
+request.source().from(0).size(5);#分页
+request.source().sort("price",SortOrder.ASC);#排序
+```
 
 
 
