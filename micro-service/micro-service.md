@@ -1362,3 +1362,90 @@ for(Terms.Bucket bucket : buckets){
 
 ### 自动补全
 
+我觉得可能暂时用不上这些，我想先跳过，大概是p127-p131
+
+### 数据同步
+
+es中的数据来源于数据库，因此数据库数据发生变化的时候，es也必须跟着改变，这就是es与mysql数据库之间的**数据同步**。
+
+**同步的方法**：
+
+同步调用：
+
+![image-20211120000359566](micro-service.assets/image-20211120000359566.png)
+
+类似于写直达，同时写到两个数据库中。
+
+缺点：耦合
+
+异步通知：
+
+![image-20211120000636827](micro-service.assets/image-20211120000636827.png)
+
+业务耦合度降低，复杂度会上升。
+
+监听binlog：
+
+![image-20211120000713070](micro-service.assets/image-20211120000713070.png)
+
+耦合度最低，实现相对复杂，而且会增加mysql的压力。
+
+相对来说，比较推荐方法二 -> 通过消息队列实现异步通知。
+
+### ES集群
+
+跳过了，感觉不太用到，跳到了p143。
+
+## 微服务保护
+
+使用Sentinel来对微服务进行保护
+
+包括流量控制，隔离和降级，授权规则，规则持久化。
+
+### Sentinel
+
+**雪崩问题**：微服务调用中的某个服务故障，引起整个链路中的所有微服务都不可用，这就是雪崩。
+
+解决办法：
+
+超时处理：设定超时时间，请求超过一定时间没有响应就返回错误信息，不会无休止的等待。
+
+舱壁模式：限定每个业务可以使用的线程数，避免耗尽整个tomcat的资源，因此也叫线程隔离。 -> 使用隔离的线程池，线程池用完就不让请求
+
+熔断降级：由**断路器**统计业务执行的异常比例，如果超出阈值会熔断该业务，拦截访问业务的一切请求。 -> 快速释放有问题的服务的请求。
+
+流量控制：限制业务访问的QPS（每秒钟处理请求的数量），避免服务因流量的突增而故障。 -> 预防故障
+
+Sentinel -> 阿里提供的一个微服务流量控制组件。
+
+**sentinel安装和配置**：
+
+```shell
+java -jar sentinel-dashboard-1.8.1.jar -Dserver.port=8090
+```
+
+使用命令行运行.jar包，提供配置参数就可以修改对应的配置。
+
+需要引入sentinel依赖，以及在配置文件中配置sentinel控制台的地址。
+
+1.引入sentinel依赖
+
+```xml
+<denpendency>
+	<groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+</denpendency>
+```
+
+2.配置控制台地址：
+
+```yml
+spring:
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8080
+```
+
+3.访问微服务的任意端点，触发sentinel监控
+
