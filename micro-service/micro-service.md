@@ -1,5 +1,8 @@
 # 微服务
+测试平台的时候，是不是可以使用jemeter进行压力测试？
+
 ## 业务拆分
+
 将不同业务拆分，要求业务独立，不重复实现功能
 ## 微服务远程调用
 例子：使用SpringCloud提供的RestTemplate
@@ -1449,3 +1452,135 @@ spring:
 
 3.访问微服务的任意端点，触发sentinel监控
 
+**限流**：
+
+簇点链路：项目内的调用链路，链路中**被监控**的每个接口就是一个资源。默认情况下sentinel会监控SpringMVC的每一个端点（Endpoint），因此SpringMVC的每一个端点（Endpoint）就是调用链路中的一个资源。
+
+点击资源/order/{orderId}后面的流控按钮，可以弹出表单。表单中可以添加流量控制规则。
+
+*流控模式*：
+
+三种流控模式：
+
+直接：统计当前资源的请求，触发阈值时对当前资源直接限流，也是默认的模式
+
+关联：统计与当前资源相关的另一个资源，触发阈值时，对当前资源限流
+
+链路：统计从指定链路访问到本资源的请求，触发阈值时，对指定链路限流
+
+关联模式的使用场景：
+
+用户支付时需要修改订单状态，同时用户要查询订单。查询和修改操作会争抢数据库锁，产生竞争。业务需求是有限支付和更新订单的业务，因此当修改订单业务触发阈值时，需要对查询订单业务限流。
+
+Sentinel默认只标记Controller中的方法为资源，如果要标记其他方法，需要利用@SentinelResource注解，示例：
+
+```java
+@SentinelResource("goods")
+public void queryGoods() {
+	System.err.println("query goods");
+}
+```
+
+Sentinel默认将Controller方法做context整合，导致链路模式的流控失败，需要修改application.yml，添加配置：
+
+```yml
+spring:
+  cloud:
+    sentinel:
+      web-context-unify: false #关闭context整合
+```
+
+*流控效果*：
+
+流控效果指的是请求达到流控阈值的时候应该采取的措施，包括三种：
+
+快速失败：达到阈值后，新的请求会被立即拒绝并抛出FlowException异常。是默认的处理方式
+
+warm up：预热模式，新的请求会被立即拒绝并抛出FlowException异常。但这种模式阈值会动态变化，从一个较小值逐渐增加到最大阈值。应对服务冷启动的方案，请求阈值初始值是threshold / coldFactor，持续指定时长后，逐渐提高到threshold值。
+
+排队等待：让所有的请求按照先后次序排队执行，两个请求的间隔不能小于指定时长，超时的请求就会被拒绝。
+
+请求进入一个队列中，按照阈值允许的时间间隔依次执行。后来的请求必须等前面的执行完成，如果请求预期的等待时间超出最大时长，则会被拒绝。
+
+*热点参数限流*：
+
+之前的限流是统计访问某个资源的所有请求，判断是否超过QPS阈值，而热点参数限流是分别统计**参数值相同**的请求，判断是否超过QPS阈值。
+
+例如：限制资源的id参数，它可以统计id一样的请求，根据这个统计值来进行限流。
+
+**隔离**：
+
+FeignClinet整合Sentinel。
+
+隔离和熔断都是对**客户端（调用方）**来实现。
+
+实现：
+
+1.修改OrderService的application.yml文件，开启Feign的Sentinel功能。
+
+```yml
+feign:
+  sentinel:
+    enabled: true
+```
+
+2.给FeignClient编写失败后的降级逻辑
+
+方式一：FallbackClass，缺点无法对远程调用的异常做处理
+
+方式二：FallbackFactory，可以对远程调用的异常做处理，选择这种
+
+步骤一：feign-api项目中定义类，实现FallbackFactory：
+
+```java
+@Slf4j
+public class UserClientFallbackFacory implements FallbackFactory<UserClient> {
+    @Override
+    public UserClient create(Throable throable){
+        return new UserClient(){
+            @Override
+            public user findById(Long id){
+				log.error("error", throable);
+                return new User();//失败的时候，返回空对象
+            }
+        }
+    }
+}
+```
+
+步骤二：在默认配置类中将上面的工厂注册为一个bean：
+
+```java
+@Bean
+public UserClientFallbackFacotry userClientFallback(){
+    return new UserClientFallbackFactory();
+}
+```
+
+步骤三：在feign-api项目中的UserClient接口中使用UserClientFallbackFactory：
+
+```java
+@FeignClient(value="userservice", fallbackFactory = UserClientFallbackFactory.class)
+public interface UserClient{
+    @GetMapping("/user/{id}")
+    User findById(@PathVariable("id") Long id);
+}
+```
+
+隔离手段：信号量隔离，线程池隔离。
+
+信号量隔离的特点：基于计数器模式，简单，开销小
+
+基于线程池模式：有额外开销，但隔离控制更强
+
+**熔断降级**：
+
+思路是：由**断路器**统计服务调用的异常比例，慢请求比例，如果超出阈值则会**熔断**该服务，即拦截访问该服务的一切请求；而当服务恢复的时候，断路器会放行访问该服务的请求。
+
+![image-20211122004825632](micro-service.assets/image-20211122004825632.png)
+
+熔断策略有三种：慢调用，异常比例，异常数 
+
+慢调用：业务的响应时长（RT）大于指定时长的请求认定为慢调用请求。在指定时间内，如果请求数量超过设定的最小数量，慢调用比例大于设定的阈值，则触发熔断。
+
+异常比例/异常数：统计指定时间内的调用，如果调用次数超过指定请求数，并且出现异常的比例达到设定的比例阈值（或超过指定异常数），则触发熔断。
