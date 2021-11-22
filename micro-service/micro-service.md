@@ -1584,3 +1584,36 @@ public interface UserClient{
 慢调用：业务的响应时长（RT）大于指定时长的请求认定为慢调用请求。在指定时间内，如果请求数量超过设定的最小数量，慢调用比例大于设定的阈值，则触发熔断。
 
 异常比例/异常数：统计指定时间内的调用，如果调用次数超过指定请求数，并且出现异常的比例达到设定的比例阈值（或超过指定异常数），则触发熔断。
+
+**授权规则**：
+
+授权规则可以对调用方的来源做控制，有黑名单和白名单两种方式。
+
+白名单：来源在白名单内的调用者允许访问
+
+黑名单：来源在黑名单内的调用者不允许访问
+
+获取请求来源的接口：RequestOriginParser。
+
+**自定义异常**：
+
+自定义异常时候返回的结果，需要实现BlockExceptionHandler接口：
+
+```java
+public interface BlockExceptionHandler {
+    void handle(HttpServletRequest request, HttpServletResponse reponse, BlockException e) throws Exception;
+}
+```
+
+**规则持久化**：
+
+sentinel控制台规则管理由三种模式：
+
+原始模式：sentinel的默认模式，规则保存在内存，重启服务丢失
+
+pull模式：控制台将配置的规则推送到sentinel客户端，客户端会将配置规则保存在本地文件或数据库中。以后会定时去本地文件或数据库中查询，更新本地规则。 -> 时效性差
+
+push模式：控制台将配置规则推送到远程配置中心，例如Nacos。Sentinel客户端监听Nacos，获取配置变更的推送消息，完成本地更新。
+
+
+
