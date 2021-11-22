@@ -1615,5 +1615,122 @@ pull模式：控制台将配置的规则推送到sentinel客户端，客户端�
 
 push模式：控制台将配置规则推送到远程配置中心，例如Nacos。Sentinel客户端监听Nacos，获取配置变更的推送消息，完成本地更新。
 
+## 分布式事务
+
+使用seata来完成。
+
+分布式系统下，一个业务跨越多个服务或数据源，每个服务都是一个分支事务，要保证所有分支事务最终状态一致，这样的事务就是**分布式事务**。
+
+### 理论基础
+
+**cap定理**：
+
+Eric Brewer说，分布式系统无法同时满足下面这三个指标  -> cap定理
+
+Eric Brewer提出，分布式系统三个指标：
+
+一致性：Consistency，用户访问分布式系统中任意节点，得到的数据必须一致
+
+可用性：Availability，用户访问集群中的任意健康节点，必须得到响应，而不是超时或拒绝
+
+分区容错性：Partition tolerance，集群出现分区的时候，整个系统也要持续对外提供服务。
+
+分区：因为网络故障或其他原因导致分布式系统中的部分节点与其他节点失去连接，形成独立分区。
+
+![image-20211122224151109](micro-service.assets/image-20211122224151109.png)
+
+**base理论**：
+
+对CAP的一种解决思路，包括三个思想：
+
+Basically Available（基本可用）：分布式系统在出现故障时，允许损失一部分可用性，即保证核心可用。
+
+Soft State（软状态）：在一定时间内，允许出现中间状态，比如临时的不一致状态。
+
+Eventually Consistent（最终一致性）：虽然无法保证强一致性，但是在软状态结束后，最终达到数据一致。
+
+分布式事务的问题是各个子事物的一致性问题，因此可以借鉴CAP定理和BASE理论：
+
+AP模式：各个子事务分别执行和提交，允许出现结果不一致，然后采用弥补措施恢复数据，实现最终一致。
+
+Cp模式：各个子十五执行后互相等待，同时提交，同时回滚，达成强一致，但在事务等待过程中，属于弱一致。
+
+解决分布式事务，各个子系统之间必须能感知到彼此的事务状态，才能保证状态的一致，因此需要一个事务协调者来协调每一个事物的参与者。
+
+![image-20211122225441878](micro-service.assets/image-20211122225441878.png)
+
+### Seata
+
+阿里和蚂蚁金服提供的开源分布式事务解决方案。
+
+Seata事务管理中有三个重要角色：
+
+TC（Transaction Coordinator） - 事务协调者：维护全局和分支事务的状态，协调全局事务提交或回滚。
+
+TM（Transaction Manager）- 事务管理器：定义全局事物的范围、开始全局事务、提交或回滚全局事务。
+
+RM（Resource Manager） - 资源管理器：管理分支事务处理的资源，与TC交谈以注册分支事务和报告分支事务的状态，并驱动分支事务提交或回滚。
+
+![image-20211122231725101](micro-service.assets/image-20211122231725101.png)
+
+Seata提供四种不同的分布式事务解决方案：
+
+XA模式：强一致性分阶段事务模式，牺牲了一定的可用性，无业务侵入
+
+TCC模式：最终一致性的分阶段事务模式，有业务侵入
+
+AT模式：最终一致的分阶段事务模式，无业务侵入，也是Seata的默认模式
+
+SAGA模式：长事务模式，有业务侵入
+
+**部署TC服务**：
+
+脱离业务的单独服务。
+
+解压，配置（registry.conf）....建议百度，流程漫长。
+
+**微服务集成Seata**：
+
+引入依赖：
+
+```xml
+<dependency>
+	<groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+    <exclusions>
+        <!-- 排除低版本-->
+    	<exclusion>
+        	<artifactId>seata-spring-boot-starter</artifactId>
+            <groupId>io.seata</groupId>
+        </exclusion>
+    </exclusions>
+</dependency>
+<!-- seata starter 使用1.4.2版本-->
+<dependency>
+	<groupId>io.seata</groupId>
+    <artifactId>seata-spring-boot-starter</artifactid>
+    <version>${seata.version}</version>
+</dependency>
+```
+
+2.配置application.yml，让微服务通过注册中心找到seata-tc-server：
+
+```yml
+seata:
+  registr: #Tc服务注册中心的配置，微服务根据这些信息取注册中心获取tc服务的地址
+  #参考tc服务自己的registry.conf中的配置
+  #包括：地址，namespace，group，application-name， cluster
+    type: nacos
+    nacos: 
+      server-addr: 127.0.0.1:8848
+      namespace: ""
+      group: DEFAULT_GROUP
+      application: seata-tc-server #tc服务在nacos中的服务名称
+  tx-service-group: seata-demo #事务组，根据这个获取TC服务的cluster名称
+  service:
+    vgroup-mapping: #事务组与TC服务cluster的映射关系
+      seata-demo: SH
+```
+
 
 
