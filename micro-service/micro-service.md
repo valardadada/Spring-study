@@ -1732,5 +1732,41 @@ seata:
       seata-demo: SH
 ```
 
+**XA模式**：强一致性
 
+XA规范是X/Open组织定义的分布式事务处理（DTP，Distributed Transaction Processing）标准，XA规范描述了全局的TM与局部的RM之间的接口，几乎所有主流数据库都支持XA规范。
 
+一阶段只执行，二阶段等到所有事务都完成了，确定没有问题才提交，如果有一个有问题，就回滚。
+
+缺点，性能差，木桶短板原理。
+
+Seata的starter已经完成XA的自动装配，实现简单：
+
+1.修改application.yml文件（参与事务的微服务），开启XA模式：
+
+```yml
+seata:
+  data-source-proxy-mode: XA
+```
+
+2.给发起全局事务的入口方法添加@GlobalTransactional注解，
+
+```java
+@GlobalTansactional
+public Long create(Order order){
+    orderMapper.insert(order);
+    return order.getId();
+}
+```
+
+**AT模式**：
+
+AT也是分阶段提交的事务模型，但区别是，一阶段执行完各自的就直接提交，但在更新前会形成数据快照，如果失败了，就用快照恢复。
+
+与XA的区别：一阶段提交事务，不锁定资源。回滚机制，利用快照，XA使用数据库回滚。但TA是最终一致，XA是强一致。
+
+AT脏写问题，锁释放了之后，另外的事务可能让这个数据改变。
+
+引入全局锁，由TC记录当前正在操作某行数据的事务，该事务有全局锁，具备执行权，其他事务无法操作这行。
+
+需要修改application.yml，修改事务模式为AT。
