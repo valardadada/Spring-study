@@ -67,3 +67,70 @@ t.start();
 
 线程启动前可以设置优先级，大概是用setPriority()，但是优先级只是修改了概率，并不强制更改执行的可能，这反而带来一些不确定性，我想。
 
+**关键字synchronized**：
+
+有多种用法，synchronized所在位置不同，加锁对象不同：
+
+直接指定加锁对象：对给定对象加锁，进入同步代码前要获得给定对象的锁
+
+直接作用于实例方法：相当于对当前实例加锁，进入u同步代码前要获得当前实例的锁
+
+直接作用于静态方法：相当于对当前类加锁，进入同步代码前要获得当前类的锁
+
+**并发不安全的ArrayList**：
+
+比如一致向ArrayList中添加数据，多线程的情况下，可能会出现总数不足，或者报告异常的情况
+
+这似乎是由于在ArrayList扩容的过程中，重复赋值，或者是扩容大小不一致导致。
+
+可以使用线程安全的**vector**代替。
+
+**并发不安全的HashMap**：
+
+除了和ArrayList可能有类似情况以外，在JDK8以前，还有可能出现死循环的情况。
+
+这是由于多线程冲突导致链表结构遭到破坏形成了环。 <span style="color:red">TODO</span>： 为什么！！
+
+**对Integer加锁**：
+
+Integer属于不变对象，也就是无法修改，如果Integer为1，那么需要2就会new一个Integer对象，所以对Integer加锁是没有用的，依然会有并发问题。
+
+### JDK并发包
+
+**可重入锁**：ReentrantLock
+
+就是指可以多次重新获得的锁，获取了多少次，最终也需要释放这么多次。
+
+重要方法有：
+
+lock()：获得锁
+
+unlock()：释放锁
+
+lockInterruptibly()：获得锁，但优先响应中断
+
+tryLock()：尝试 获得锁，成功返回true，失败返回false
+
+tryLock(long time, TimeUnit unit): 在给定时间内尝试获得锁
+
+公平锁：可以给ReentrantLock设置fair属性，代表是否公平，公平的话，会每个等待的线程依次执行。但效率低。
+
+**Condition类**：
+
+使用lock接口的Condition newCondition()方法可以生成一个与当前重入锁绑定的Condition实例，使用这个对象可以执行类似wait和notify的操作：
+
+```java
+void await() throws InterruptedException;
+void awaituninterruptibly();
+void awaitNanos(long nanosTimeout) throws InterruptedException;
+boolean await(long time, TimeUnit unit) throws InterruptedException;
+boolean awaitUntil(Date deadline) throws InterruptedException;
+void signal();
+void signalAll();
+```
+
+await()和wait()类似，会使得当前线程等待，同时释放当前锁，当其他线程中使用signal()方法或signalAll()方法的时候，线程会重新获得锁并继续执行。
+
+awaitUninterruptibly()方法与await()类似，但并不会在等待过程中响应中断。
+
+singal()用于唤醒一个正在等待的线程。
