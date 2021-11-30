@@ -134,3 +134,26 @@ await()和wait()类似，会使得当前线程等待，同时释放当前锁，�
 awaitUninterruptibly()方法与await()类似，但并不会在等待过程中响应中断。
 
 singal()用于唤醒一个正在等待的线程。
+
+**信号量**：
+
+```java
+public Semaphore(int permits);
+public Semaphore(int permits, boolean fair);
+```
+
+构造方法，permits表示准入个数，fair表示是否公平。
+
+```java
+public void acquire();
+public void acquireUninterruptibly();
+public boolean tryAcquire();
+public boolean tryAcquire(long timeout, TimeUnit unit);
+public void release();
+```
+
+acquire()尝试获得准入许可，失败就等待。tryAcquire()尝试获得，失败返回false，不等待。release()释放一个信号量。
+
+**读写锁**：
+
+允许同时读，但写写操作和读写操作依旧需要互相等待。
