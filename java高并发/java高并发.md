@@ -209,3 +209,65 @@ limiter.acquire(); //尝试获得一个令牌，如果没有拿到就阻塞
 limiter.tryAcquire(); //尝试获得一个令牌，获得返回true，失败返回false，不会阻塞
 ```
 
+#### JDK线程池
+
+JDK提供一套Executor框架：
+
+```java
+//Executor:
+execute(Runnable command);
+//AbstractExecutorService:
+//ThreadPoolExecutor:
+//ExecutorService
+shutdown();
+isShutdown();
+isTerminated();
+submit();
+//Executors:
+newfixedThreadPool(int nThreads): ExecutorService //返回一个固定数量的线程池，空闲线程则执行任务，无空闲则进队列
+newSingleThreadExecutor(): ExecutorService //返回一个只有一个线程的线程池，多余一个则保存到队列
+newCachedThreadPool(): ExecutorService//返回一个根据实际情况扩展的线程池，优先复用空闲线程，队列满后才会创建新的线程
+newSingleThreadScheduledExecutor(): ScheduledExecutorService//线程池大小为一的可以定时执行任务的线程池
+//ScheduledExecutorService:
+schedule(Runnable command, long delay, TimeUnit unit): ScheduledFuture
+```
+
+**内部实现**：
+
+```java
+public ThreadPoolExecutor(int corePoolSize,  //线程池中线程数量
+                         int maximumPoolSize, //最大线程数量
+                         long keepAliveTime, //超过corePoolSize的线程存活的时间
+                         TimeUnit unit,//存活时间的单位
+                         BlockingQueue<Runnable> workQueue,//任务队列，被提交但未执行的任务
+                         ThreadFactory threadFactory, //线程工程，用于创建任务
+                         RejectedExecutionHandler handler) //拒绝策略，线程太多无法执行时候，如何拒绝
+```
+
+**workQueue**：
+
+有四种实现：
+
+直接提交的队列：SynchronousQueue，没有容量，一旦提交就会尝试创建线程
+
+有界的任务队列：ArrayBlockingQueue，新任务未达上线容量时阻塞，达到时尝试创建线程
+
+无界的任务队列：LinkedBlockingQueue，可以无限增加等待任务，会爆内存
+
+优先任务队列：PriorityBlockingQueue，可以有优先级的队列
+
+**拒绝策略**：
+
+略
+
+**自定义线程创建：ThreadFactory**：
+
+可以定义创建线程的时候要做些什么事情。
+
+**扩展线程池**：
+
+ThreadPoolExecutor是可以进行扩展的线程池，提供了beforeExecute()，afterExecute()，terminated()三个接口来对线程池进行控制。构建线程池的时候，重写这些方法就可以获得对应的功能。
+
+**记录异常**：
+
+可以通过继承ThreadPoolExecutor，修改其execute和submit方法，就可以增加对异常的打印。 
