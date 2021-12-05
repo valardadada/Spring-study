@@ -271,3 +271,30 @@ ThreadPoolExecutor是可以进行扩展的线程池，提供了beforeExecute()�
 **记录异常**：
 
 可以通过继承ThreadPoolExecutor，修改其execute和submit方法，就可以增加对异常的打印。 
+
+**fork/join框架**：
+
+ForkJoinTask任务有两个重要子类：RecursiveAction（无返回值），RecursiveTask（有返回值）
+
+```java
+public class CountTask extends RecursiveTask<Long>{
+    ...
+    public void xxx(){
+        CountTask subTask = new CountTask();
+        subTask.fork(); //-> 子任务
+        subTask.join(); //->主任务等待子任务完成
+    }
+}
+```
+
+**并发容器**：
+
+ConcurrentHashMap：高效的并发HashMap
+
+CopyOnWriteArrayList：写时复制列表。 -> 读不阻塞，读写也不阻塞，写写阻塞，写的时候将原数组复制出来，添加/修改，然后替换回去。
+
+ConcurrentLinkedQueue：使用CAS操作进行同步，没有锁。每两次添加会更新一次tail。同时会有哨兵节点，是由于弹出的时候造成的。
+
+BlockingQueue：一般来说，是在取得时候，如果没有数据，可以阻塞，在放入得时候，如果满了，可以阻塞。放入数据或者取得数据得时候进行相应的notify工作。
+
+ConcurrentSkipListMap：跳表。多层链表，上层链表是下层链表的子集，从上层链表开始扫描，如果上层链表的下一个值大于要查找的值得时候，跳到下一层查找。
